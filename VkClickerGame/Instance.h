@@ -10,6 +10,9 @@ struct Instance final : public mem::IScoped
 private:
 	VkInstance _value;
 	VkSurfaceKHR _surface;
+	VkPhysicalDevice _physicalDevice;
+	VkDevice _device;
+	VkQueue _graphicsQueue;
 };
 
 struct InstanceBuilder final
@@ -26,5 +29,8 @@ private:
 	const char** _windowingExtensions;
 	uint32_t _windowingExtensionsCount;
 	mem::Arr<const char*> _validationLayers;
+
+	mem::Arr<VkPhysicalDevice> GetPhysicalDevices(Instance& instance);
+	void SetLogicalDevice(Instance& instance);
 };
 

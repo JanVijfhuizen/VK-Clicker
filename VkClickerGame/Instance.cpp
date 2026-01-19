@@ -36,6 +36,12 @@ Instance InstanceBuilder::Build(Window& window)
         throw std::runtime_error("Failed to create window surface!");
     }
 
+    auto devices = GetPhysicalDevices(instance);
+    // TEMP.
+    instance._physicalDevice = devices[0];
+
+    SetLogicalDevice(instance);
+
     return instance;
 }
 
@@ -57,8 +63,45 @@ InstanceBuilder& InstanceBuilder::SetValidationLayers(mem::Arr<const char*> laye
     return *this;
 }
 
+mem::Arr<VkPhysicalDevice> InstanceBuilder::GetPhysicalDevices(Instance& instance)
+{
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(instance._value, &deviceCount, nullptr);
+
+    if (deviceCount == 0) {
+        throw std::runtime_error("No Vulkan GPUs found!");
+    }
+
+    auto arr = mem::Arr<VkPhysicalDevice>(TEMP, deviceCount);
+    vkEnumeratePhysicalDevices(instance._value, &deviceCount, arr.ptr());
+    return arr;
+}
+
+void InstanceBuilder::SetLogicalDevice(Instance& instance)
+{
+    float queuePriority = 1.0f;
+    VkDeviceQueueCreateInfo queueCreateInfo{};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = 0; // TEMP, fix this later
+    queueCreateInfo.queueCount = 1;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkDeviceCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.queueCreateInfoCount = 1;
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
+
+    if (vkCreateDevice(instance._physicalDevice, &createInfo, nullptr, &instance._device) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create logical device!");
+    }
+
+    vkGetDeviceQueue(instance._device, 0, 0, &instance._graphicsQueue);
+}
+
 void Instance::OnScopeClear()
 {
+    vkDeviceWaitIdle(_device);
+    vkDestroyDevice(_device, nullptr);
     vkDestroySurfaceKHR(_value, _surface, nullptr);
     vkDestroyInstance(_value, nullptr);
 }
