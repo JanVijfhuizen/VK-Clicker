@@ -6,7 +6,6 @@ namespace mem
 {
 	jv::Arena* arenas = nullptr;
 	uint32_t arenasLength;
-	bool copyingScope = false;
 
 	struct PScope final {
 		PScope() {}
@@ -41,6 +40,7 @@ namespace mem
 		arenas[TEMP] = jv::Arena::Create(aInfo);
 		aInfo.memorySize = info.frameSize;
 		arenas[FRAM] = jv::Arena::Create(aInfo);
+		arenasLength = len;
 
 		for (uint32_t i = 2; i < len; i++)
 		{
@@ -64,7 +64,6 @@ namespace mem
 	{
 		Scope scope{};
 		PScope(scope, arena, false);
-		copyingScope = true;
 		return scope;
 	}
 	Scope manualScope(ARENA arena)
@@ -98,11 +97,6 @@ namespace mem
 	{
 		if (_manual)
 			return;
-		if (copyingScope)
-		{
-			copyingScope = false;
-			return;
-		}
 		clear();
 	}
 }

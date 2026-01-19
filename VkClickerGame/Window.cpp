@@ -16,6 +16,12 @@ WindowBuilder& WindowBuilder::SetName(const char* name)
 	return *this;
 }
 
+WindowBuilder& WindowBuilder::SetResolution(glm::ivec2 resolution)
+{
+	_resolution = resolution;
+	return *this;
+}
+
 bool Window::Update()
 {
 	if (glfwWindowShouldClose(_value))

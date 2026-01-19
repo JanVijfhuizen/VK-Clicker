@@ -23,7 +23,7 @@ namespace mem
 
 	struct Info final {
 		uint32_t* persistentInitSizes = nullptr;
-		uint32_t persistentLength = 0;
+		uint32_t persistentLength = 1;
 		uint32_t persistentDefaultSize = 4096 * 256 * 32;
 		uint32_t tempSize = 4096 * 256 * 32;
 		uint32_t frameSize = 4096 * 256;

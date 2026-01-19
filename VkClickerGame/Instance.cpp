@@ -20,8 +20,13 @@ Instance InstanceBuilder::Build()
     createInfo.enabledExtensionCount = _windowingExtensionsCount;
     createInfo.ppEnabledExtensionNames = _windowingExtensions;
 
-    // No validation layers yet
-    createInfo.enabledLayerCount = 0;
+    auto _ = mem::scope(TEMP);
+    auto arr = mem::Arr<const char*>(TEMP, _validationLayers.length() + 1);
+    arr[0] = "VK_LAYER_KHRONOS_validation";
+    arr.put(1, _validationLayers);
+
+    createInfo.enabledLayerCount = arr.length();
+    createInfo.ppEnabledLayerNames = arr.ptr();
 
     if (vkCreateInstance(&createInfo, nullptr, &instance._value) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan instance!");
@@ -37,5 +42,11 @@ InstanceBuilder& InstanceBuilder::SetName(const char* name)
 InstanceBuilder& InstanceBuilder::AddGLFWSupport()
 {
     _windowingExtensions = glfwGetRequiredInstanceExtensions(&_windowingExtensionsCount);
+    return *this;
+}
+
+InstanceBuilder& InstanceBuilder::SetValidationLayers(mem::Arr<const char*> layers)
+{
+    _validationLayers = layers;
     return *this;
 }

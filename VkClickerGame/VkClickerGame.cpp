@@ -7,7 +7,7 @@ int main()
     mem::init();
 
     auto windowBuilder = WindowBuilder();
-    auto window = windowBuilder.SetName("My Engine").Build();
+    auto window = windowBuilder.SetName("My Engine").SetResolution({800, 600}).Build();
 
     auto instanceBuilder = InstanceBuilder();
     auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().Build();
