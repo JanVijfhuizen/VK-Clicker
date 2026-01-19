@@ -1,11 +1,13 @@
 #pragma once
 
-struct Window final
+struct Window final : public mem::IScoped
 {
 	friend struct WindowBuilder;
 
 	bool Update();
-	void Destroy();
+	virtual void OnScopeClear() override;
+
+	GLFWwindow* Ptr();
 
 private:
 	GLFWwindow* _value;

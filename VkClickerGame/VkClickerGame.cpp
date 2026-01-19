@@ -6,16 +6,20 @@ int main()
 {
     mem::init();
 
+    auto scope = mem::manualScope(PERS);
+
     auto windowBuilder = WindowBuilder();
     auto window = windowBuilder.SetName("My Engine").SetResolution({800, 600}).Build();
+    scope.bind(window);
 
     auto instanceBuilder = InstanceBuilder();
-    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().Build();
+    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().Build(window);
+    scope.bind(instance);
 
     while (window.Update()) {
         mem::frame();
     }
 
-    window.Destroy();
+    scope.clear();
     mem::end();
 }

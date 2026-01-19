@@ -1,16 +1,20 @@
 #pragma once
+#include "Window.h"
 
-struct Instance final
+struct Instance final : public mem::IScoped
 {
 	friend struct InstanceBuilder;
 
+	virtual void OnScopeClear() override;
+
 private:
 	VkInstance _value;
+	VkSurfaceKHR _surface;
 };
 
 struct InstanceBuilder final
 {
-	Instance Build();
+	Instance Build(Window& window);
 
 	InstanceBuilder& SetName(const char* name);
 	InstanceBuilder& AddGLFWSupport();

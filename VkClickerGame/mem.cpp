@@ -40,13 +40,13 @@ namespace mem
 		arenas[TEMP] = jv::Arena::Create(aInfo);
 		aInfo.memorySize = info.frameSize;
 		arenas[FRAM] = jv::Arena::Create(aInfo);
-		arenasLength = len;
 
 		for (uint32_t i = 2; i < len; i++)
 		{
 			aInfo.memorySize = info.persistentInitSizes ? info.persistentInitSizes[i] : info.persistentDefaultSize;
 			arenas[i] = jv::Arena::Create(aInfo);
 		}
+		arenasLength = len;
 	}
 	void end()
 	{
@@ -91,6 +91,16 @@ namespace mem
 	}
 	void Scope::clear()
 	{
+		IScoped* cur = _scoped;
+		while (cur)
+		{
+			cur->OnScopeClear();
+			cur = cur->_next;
+		}
+		_scoped = nullptr;
+
+		if (!arenas)
+			return;
 		arenas[_arena].DestroyScope(_scope);
 	}
 	Scope::~Scope()
@@ -98,5 +108,14 @@ namespace mem
 		if (_manual)
 			return;
 		clear();
+	}
+	bool Scope::operator==(const Scope& other)
+	{
+		return _scope == other._scope && _arena == other._arena;
+	}
+	void Scope::bind(IScoped& scoped)
+	{
+		scoped._next = _scoped;
+		_scoped = &scoped;
 	}
 }

@@ -30,7 +30,13 @@ bool Window::Update()
 	return true;
 }
 
-void Window::Destroy()
+void Window::OnScopeClear()
 {
+	glfwDestroyWindow(_value);
 	glfwTerminate();
+}
+
+GLFWwindow* Window::Ptr()
+{
+	return _value;
 }

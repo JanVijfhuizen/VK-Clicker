@@ -2,7 +2,7 @@
 #include "Instance.h"
 #include <GLFW/glfw3.h>
 
-Instance InstanceBuilder::Build()
+Instance InstanceBuilder::Build(Window& window)
 {
     Instance instance{};
 
@@ -31,6 +31,12 @@ Instance InstanceBuilder::Build()
     if (vkCreateInstance(&createInfo, nullptr, &instance._value) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan instance!");
     }
+
+    if (glfwCreateWindowSurface(instance._value, window.Ptr(), nullptr, &instance._surface) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create window surface!");
+    }
+
+    return instance;
 }
 
 InstanceBuilder& InstanceBuilder::SetName(const char* name)
@@ -49,4 +55,10 @@ InstanceBuilder& InstanceBuilder::SetValidationLayers(mem::Arr<const char*> laye
 {
     _validationLayers = layers;
     return *this;
+}
+
+void Instance::OnScopeClear()
+{
+    vkDestroySurfaceKHR(_value, _surface, nullptr);
+    vkDestroyInstance(_value, nullptr);
 }
