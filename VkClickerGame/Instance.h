@@ -13,6 +13,7 @@ private:
 	VkPhysicalDevice _physicalDevice;
 	VkDevice _device;
 	VkQueue _graphicsQueue;
+	VkDebugUtilsMessengerEXT _debugMessenger;
 };
 
 struct InstanceBuilder final
@@ -38,7 +39,9 @@ private:
 	mem::Arr<const char*> _validationLayers;
 
 	mem::Arr<VkPhysicalDevice> GetPhysicalDevices(Instance& instance);
+	void SetPhysicalDevice(Instance& instance);
 	void SetLogicalDevice(Instance& instance);
 	QueueFamily GetQueueFamily(Instance& instance);
+	VkResult CreateDebugUtilsMessengerEXT(Instance& instance);
 };
 

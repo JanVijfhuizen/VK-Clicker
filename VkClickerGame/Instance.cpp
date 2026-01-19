@@ -3,6 +3,36 @@
 #include <GLFW/glfw3.h>
 #include "Vec.h"
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+    VkDebugUtilsMessageTypeFlagsEXT type,
+    const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+    void* userData)
+{
+    std::cerr << "validation: " << callbackData->pMessage << std::endl;
+    return VK_FALSE;
+}
+
+VkResult InstanceBuilder::CreateDebugUtilsMessengerEXT(Instance& instance)
+{
+    VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    createInfo.messageSeverity =
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    createInfo.messageType =
+        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    createInfo.pfnUserCallback = debugCallback;
+    createInfo.pUserData = nullptr; // optional
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)
+        vkGetInstanceProcAddr(instance._value, "vkCreateDebugUtilsMessengerEXT");
+    return func ? func(instance._value, &createInfo, nullptr, &instance._debugMessenger)
+        : VK_ERROR_EXTENSION_NOT_PRESENT;
+}
+
 Instance InstanceBuilder::Build(Window& window)
 {
     Instance instance{};
@@ -18,16 +48,20 @@ Instance InstanceBuilder::Build(Window& window)
     VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledExtensionCount = _windowingExtensionsCount;
-    createInfo.ppEnabledExtensionNames = _windowingExtensions;
 
     auto _ = mem::scope(TEMP);
-    auto arr = mem::Arr<const char*>(TEMP, _validationLayers.length() + 1);
-    arr[0] = "VK_LAYER_KHRONOS_validation";
-    arr.put(1, _validationLayers);
 
-    createInfo.enabledLayerCount = arr.length();
-    createInfo.ppEnabledLayerNames = arr.ptr();
+    auto layers = mem::Arr<const char*>(TEMP, _validationLayers.length() + 1);
+    layers[0] = "VK_LAYER_KHRONOS_validation";
+    layers.put(1, _validationLayers);
+    createInfo.enabledLayerCount = layers.length();
+    createInfo.ppEnabledLayerNames = layers.ptr();
+
+    auto extensions = mem::Arr<const char*>(TEMP, _windowingExtensionsCount + 1);
+    extensions[0] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+    extensions.put(1, _windowingExtensions, _windowingExtensionsCount);
+    createInfo.enabledExtensionCount = extensions.length();
+    createInfo.ppEnabledExtensionNames = extensions.ptr();
 
     if (vkCreateInstance(&createInfo, nullptr, &instance._value) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Vulkan instance!");
@@ -37,11 +71,9 @@ Instance InstanceBuilder::Build(Window& window)
         throw std::runtime_error("Failed to create window surface!");
     }
 
-    auto devices = GetPhysicalDevices(instance);
-    // TEMP.
-    instance._physicalDevice = devices[0];
-
+    SetPhysicalDevice(instance);
     SetLogicalDevice(instance);
+    CreateDebugUtilsMessengerEXT(instance);
 
     return instance;
 }
@@ -76,6 +108,58 @@ mem::Arr<VkPhysicalDevice> InstanceBuilder::GetPhysicalDevices(Instance& instanc
     auto arr = mem::Arr<VkPhysicalDevice>(TEMP, deviceCount);
     vkEnumeratePhysicalDevices(instance._value, &deviceCount, arr.ptr());
     return arr;
+}
+
+void InstanceBuilder::SetPhysicalDevice(Instance& instance)
+{
+    struct Rateable {
+        VkPhysicalDevice device;
+        uint32_t rating;
+    };
+
+    auto _ = mem::scope(TEMP);
+    auto devices = GetPhysicalDevices(instance);
+    auto requiredExtensions = mem::Arr<const char*>(TEMP, 1);
+    requiredExtensions[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+
+    auto rateables = mem::Vec<uint32_t>(TEMP, devices.length());
+    devices.iter([&rateables](auto& device, auto i) {
+        auto& r = rateables.add() = {};
+        r.device = device;
+        });
+
+    uint32_t extensionCount = 0;
+    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+
+    auto availableExtensions = mem::Arr<VkExtensionProperties>(TEMP, extensionCount);
+    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.ptr());
+
+    for (int32_t i = rateables.count() - 1; i >= 0; i--)
+    {
+        bool valid = true;
+        for (uint32_t j = 0; j < requiredExtensions.length(); j++)
+        {
+            auto required = requiredExtensions[j];
+            bool found = false;
+
+            // Available list/contains.
+            for (auto& available : availableExtensions) {
+                if (strcmp(required, available.extensionName) == 0) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                valid = false;
+                break;
+            }
+        }
+    }
+
+    
+
+    instance._physicalDevice = devices[0];
 }
 
 void InstanceBuilder::SetLogicalDevice(Instance& instance)
@@ -145,6 +229,13 @@ InstanceBuilder::QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
 
 void Instance::OnScopeClear()
 {
+    auto DestroyDebugUtilsMessengerEXT =
+        (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(_value, "vkDestroyDebugUtilsMessengerEXT");
+
+    if (_debugMessenger != VK_NULL_HANDLE) {
+        DestroyDebugUtilsMessengerEXT(_value, _debugMessenger, nullptr);
+    }
+
     vkDeviceWaitIdle(_device);
     vkDestroyDevice(_device, nullptr);
     vkDestroySurfaceKHR(_value, _surface, nullptr);
