@@ -24,6 +24,13 @@ struct InstanceBuilder final
 	InstanceBuilder& SetValidationLayers(mem::Arr<const char*> layers);
 
 private:
+	struct QueueFamily final {
+		uint32_t graphics = -1;
+		uint32_t present = -1;
+
+		bool Valid();
+	};
+
 	Instance _instance{};
 	const char* _name = "VK Instance";
 	const char** _windowingExtensions;
@@ -32,5 +39,6 @@ private:
 
 	mem::Arr<VkPhysicalDevice> GetPhysicalDevices(Instance& instance);
 	void SetLogicalDevice(Instance& instance);
+	QueueFamily GetQueueFamily(Instance& instance);
 };
 

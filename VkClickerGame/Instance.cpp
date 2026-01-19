@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Instance.h"
 #include <GLFW/glfw3.h>
+#include "Vec.h"
 
 Instance InstanceBuilder::Build(Window& window)
 {
@@ -79,17 +80,29 @@ mem::Arr<VkPhysicalDevice> InstanceBuilder::GetPhysicalDevices(Instance& instanc
 
 void InstanceBuilder::SetLogicalDevice(Instance& instance)
 {
-    float queuePriority = 1.0f;
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = 0; // TEMP, fix this later
-    queueCreateInfo.queueCount = 1;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
+    // Create queues.
+    float queuePriority = 1;
+    auto queueFamily = GetQueueFamily(instance);
+
+    // Very hacky but it's whatever.
+    auto familyVec = mem::Vec<uint32_t>(TEMP, 2);
+    familyVec.add() = queueFamily.graphics;
+    if(familyVec[0] != queueFamily.present)
+        familyVec.add() = queueFamily.present;
+
+    auto queueCreateInfos = mem::Arr<VkDeviceQueueCreateInfo>(TEMP, familyVec.count());
+    familyVec.arr().iter([&queueCreateInfos, &queueFamily, &queuePriority](auto& family, auto i) {
+        auto& info = queueCreateInfos[i] = {};
+        info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        info.queueFamilyIndex = family;
+        info.queueCount = 1;
+        info.pQueuePriorities = &queuePriority;
+        });
 
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount = 1;
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = queueCreateInfos.length();
+    createInfo.pQueueCreateInfos = queueCreateInfos.ptr();
 
     if (vkCreateDevice(instance._physicalDevice, &createInfo, nullptr, &instance._device) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create logical device!");
@@ -98,10 +111,47 @@ void InstanceBuilder::SetLogicalDevice(Instance& instance)
     vkGetDeviceQueue(instance._device, 0, 0, &instance._graphicsQueue);
 }
 
+InstanceBuilder::QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
+{
+    QueueFamily family;
+
+    uint32_t familyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(instance._physicalDevice, &familyCount, nullptr);
+
+    auto scope = mem::scope(TEMP);
+    auto arr = mem::Arr<VkQueueFamilyProperties>(TEMP, familyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(instance._physicalDevice, &familyCount, arr.ptr());
+
+    uint32_t i = 0;
+    arr.iterb([&family, &i, &instance](VkQueueFamilyProperties& current, auto) {
+        if (current.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            family.graphics = i;
+        }
+
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(instance._physicalDevice, i, instance._surface, &presentSupport);
+        if (presentSupport) {
+            family.present = i;
+        }
+
+        if (family.Valid())
+            return false;
+        i++;
+        return true;
+        });
+    
+    return family;
+}
+
 void Instance::OnScopeClear()
 {
     vkDeviceWaitIdle(_device);
     vkDestroyDevice(_device, nullptr);
     vkDestroySurfaceKHR(_value, _surface, nullptr);
     vkDestroyInstance(_value, nullptr);
+}
+
+bool InstanceBuilder::QueueFamily::Valid()
+{
+    return graphics != -1 && present != -1;
 }

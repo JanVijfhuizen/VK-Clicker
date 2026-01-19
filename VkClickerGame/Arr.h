@@ -19,15 +19,26 @@ namespace mem
 		void put(uint32_t i, Arr& arr) const;
 		void put(uint32_t i, T* ptr, uint32_t length) const;
 		void point(T* ptr, uint32_t length = 0);
+		Arr<T> first(uint32_t length);
+		Arr<T> last(uint32_t length);
+		Arr<T> part(uint32_t i, uint32_t length);
+		void set(T value);
+		int32_t contains(T value);
 
 		template <typename U>
 		void iter(U func, bool reverse = false) const;
+		template <typename U>
+		void iter(U func, const Arr<T>& other);
 		template <typename U>
 		bool iterb(U func, bool reverse = false) const;
 		template <typename U>
 		Arr<T> get(uint8_t arena, U func) const;
 		template <typename U>
 		void sort(U func) const;
+		uint32_t* makeExtSort(uint8_t arena) const;
+		template <typename U>
+		void extSort(uint32_t* indices, U func) const;
+		void applyExtSort(uint32_t* indices, uint8_t t = TEMP) const;
 
 		static Arr<T> combine(uint8_t arena, Arr<T>& a, Arr<T>& b);
 
@@ -109,6 +120,54 @@ namespace mem
 		_length = length;
 	}
 	template<typename T>
+	inline Arr<T> Arr<T>::first(uint32_t length)
+	{
+		auto cpy = *this;
+		cpy._length = length;
+		return cpy;
+	}
+	template<typename T>
+	inline Arr<T> Arr<T>::last(uint32_t length)
+	{
+		assert(length <= _length);
+		auto cpy = *this;
+		cpy.point(&_ptr[_length - length - 1], length);
+		return cpy;
+	}
+	template<typename T>
+	inline Arr<T> Arr<T>::part(uint32_t i, uint32_t length)
+	{
+		assert(i + length <= _length);
+		auto cpy = *this;
+		cpy._ptr = &_ptr[i];
+		cpy._length = length;
+		return cpy;
+	}
+	template<typename T>
+	inline void Arr<T>::set(T value)
+	{
+		for (uint32_t i = 0; i < _length; i++)
+			_ptr[i] = value;
+	}
+	template<typename T>
+	inline int32_t Arr<T>::contains(T value)
+	{
+		for (uint32_t i = 0; i < _length; i++)
+			if (_ptr[i] == value)
+				return i;
+		return -1;
+	}
+	template<typename T>
+	inline uint32_t* Arr<T>::makeExtSort(uint8_t arena) const
+	{
+		auto arr = mem::Arr<uint32_t>(arena, _length);
+		arr.iter([](auto& v, auto i)
+			{
+				v = i;
+			});
+		return arr.ptr();
+	}
+	template<typename T>
 	inline Arr<T> Arr<T>::combine(uint8_t arena, Arr<T>& a, Arr<T>& b)
 	{
 		auto arr = Arr<T>(arena, a.length() + b.length());
@@ -129,6 +188,14 @@ namespace mem
 			
 		for (uint32_t i = 0; i < _length; i++)
 			func(_ptr[i], i);
+	}
+	template<typename T>
+	template<typename U>
+	inline void Arr<T>::iter(U func, const Arr<T>& other)
+	{
+		iter([&func, &other](auto& a, auto i) {
+			func(a, other[i], i);
+			});
 	}
 	template<typename T>
 	template<typename U>
@@ -180,5 +247,39 @@ namespace mem
 				--idx;
 			}
 		}
+	}
+	template<typename T>
+	template<typename U>
+	inline void Arr<T>::extSort(uint32_t* indices, U func) const
+	{
+		for (size_t i = 1; i < _length; ++i)
+		{
+			size_t idx = i;
+			while (idx > 0)
+			{
+				auto& current = _ptr[indices[idx]];
+				auto& other = _ptr[indices[idx - 1]];
+
+				if (!func(current, other))
+					break;
+
+				const auto temp = indices[idx];
+				indices[idx] = indices[idx - 1];
+				indices[idx - 1] = temp;
+
+				--idx;
+			}
+		}
+	}
+	template<typename T>
+	inline void Arr<T>::applyExtSort(uint32_t* indices, uint8_t t) const
+	{
+		auto _ = mem::scope(t);
+		auto tArr = mem::Arr<T>(t, _length);
+
+		for (size_t i = 0; i < _length; ++i)
+			tArr[i] = _ptr[indices[i]];
+		for (size_t i = 0; i < _length; ++i)
+			_ptr[i] = tArr[i];
 	}
 }

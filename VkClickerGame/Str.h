@@ -9,8 +9,10 @@ namespace mem
 		Str(uint8_t arena, uint32_t length);
 		Str(uint8_t arena, const char* string);
 
+		void set(const char* string);
 		template <typename ...Args>
 		static Str f(uint8_t arena, Args... args);
+		static Str i(uint8_t arena, int32_t i);
 	private:
 		template <typename ...Args>
 		static uint32_t _getLength(const char* str, Args... args);

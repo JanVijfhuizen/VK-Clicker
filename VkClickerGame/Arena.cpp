@@ -124,6 +124,19 @@ namespace jv
 		return size * info.memorySize;
 	}
 
+	void Arena::GetFront(uint32_t& depth, uint32_t& front) const
+	{
+		depth = -1;
+		front = 0;
+		const Arena* current = this;
+		while (current)
+		{
+			++depth;
+			front = current->front;
+			current = current->next;
+		}
+	}
+
 	uint64_t Arena::CreateScope() const
 	{
 		const Arena* current = this;

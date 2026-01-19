@@ -2,6 +2,15 @@
 
 namespace jv
 {
+	bool FltCmp(const float& a, const float& b);
+
+	// Source: https://stackoverflow.com/questions/10732027/fast-sigmoid-algorithm
+	template <typename T>
+	T FastSigmoid(const T x)
+	{
+		return x / (1.f + abs(x));
+	}
+
 	template <typename T>
 	[[nodiscard]] T Max(const T& a, const T& b)
 	{
@@ -21,6 +30,14 @@ namespace jv
 	}
 
 	[[nodiscard]] float RandF(float min, float max);
+	[[nodiscard]] float RandNoise(float f, float pct);
+
+	template <typename T>
+	[[nodiscard]] T Lerp(const T& f, const T& min, const T& max)
+	{
+		const T bounds = max - min;
+		return min + bounds * f;
+	}
 
 	template <typename T>
 	[[nodiscard]] T RLerp(const T& t, const T& min, const T& max)

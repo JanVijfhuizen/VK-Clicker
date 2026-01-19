@@ -12,6 +12,8 @@ namespace mem
 		T& add();
 		void clear();
 		uint32_t count();
+		Arr<T> arr();
+		void setCount(uint32_t i);
 	private:
 		uint32_t _count = 0;
 	};
@@ -45,6 +47,17 @@ namespace mem
 	inline uint32_t Vec<T>::count()
 	{
 		return _count;
+	}
+	template<typename T>
+	inline Arr<T> Vec<T>::arr()
+	{
+		return Arr<T>(Arr<T>::_ptr, _count);
+	}
+	template<typename T>
+	inline void Vec<T>::setCount(uint32_t i)
+	{
+		assert(i <= Arr<T>::_length);
+		_count = i;
 	}
 }
 

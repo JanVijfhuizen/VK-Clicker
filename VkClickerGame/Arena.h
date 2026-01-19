@@ -49,6 +49,7 @@ namespace jv
 		__declspec(dllexport) void Free(const void* ptr);
 		__declspec(dllexport) void Clear();
 		__declspec(dllexport) [[nodiscard]] uint32_t GetTotalUsedMemory() const;
+		__declspec(dllexport) [[nodiscard]] void GetFront(uint32_t& depth, uint32_t& front) const;
 
 		template <typename T>
 		__declspec(dllexport) [[nodiscard]] T* New(size_t count = 1);
