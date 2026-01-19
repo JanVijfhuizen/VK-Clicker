@@ -1,23 +1,21 @@
 #include "pch.h"
 #include "Instance.h"
+#include "Window.h"
 
 int main()
 {
     mem::init();
 
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    auto windowBuilder = WindowBuilder();
+    auto window = windowBuilder.SetName("My Engine").Build();
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "GLFW + Vulkan", nullptr, nullptr);
+    auto instanceBuilder = InstanceBuilder();
+    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().Build();
 
-    auto instanceBuilder = InstanceBuilder(TEMP);
-    instanceBuilder.SetName("My Engine").AddGLFWSupport().Build();
-
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+    while (window.Update()) {
         mem::frame();
     }
 
-    glfwTerminate();
+    window.Destroy();
     mem::end();
 }

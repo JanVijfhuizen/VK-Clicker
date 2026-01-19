@@ -2,11 +2,6 @@
 #include "Instance.h"
 #include <GLFW/glfw3.h>
 
-InstanceBuilder::InstanceBuilder(ARENA arena)
-{
-	_name = "VK Instance";
-}
-
 Instance InstanceBuilder::Build()
 {
     Instance instance{};

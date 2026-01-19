@@ -10,7 +10,6 @@ private:
 
 struct InstanceBuilder final
 {
-	InstanceBuilder(ARENA arena);
 	Instance Build();
 
 	InstanceBuilder& SetName(const char* name);
@@ -18,7 +17,7 @@ struct InstanceBuilder final
 
 private:
 	Instance _instance{};
-	const char* _name;
+	const char* _name = "VK Instance";
 	const char** _windowingExtensions;
 	uint32_t _windowingExtensionsCount;
 };

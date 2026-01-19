@@ -155,6 +155,7 @@
     <ClCompile Include="Str.cpp" />
     <ClCompile Include="Vec.cpp" />
     <ClCompile Include="VkClickerGame.cpp" />
+    <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Arena.h" />
@@ -169,6 +170,7 @@
     <ClInclude Include="Queue.h" />
     <ClInclude Include="Str.h" />
     <ClInclude Include="Vec.h" />
+    <ClInclude Include="Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
