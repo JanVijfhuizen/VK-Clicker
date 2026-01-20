@@ -114,7 +114,7 @@ void InstanceBuilder::SetPhysicalDevice(Instance& instance)
 {
     struct Rateable {
         VkPhysicalDevice device;
-        uint32_t rating;
+        uint32_t rating = 0;
     };
 
     auto _ = mem::scope(TEMP);
@@ -122,7 +122,7 @@ void InstanceBuilder::SetPhysicalDevice(Instance& instance)
     auto requiredExtensions = mem::Arr<const char*>(TEMP, 1);
     requiredExtensions[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
-    auto rateables = mem::Vec<uint32_t>(TEMP, devices.length());
+    auto rateables = mem::Vec<Rateable>(TEMP, devices.length());
     devices.iter([&rateables](auto& device, auto i) {
         auto& r = rateables.add() = {};
         r.device = device;
@@ -136,14 +136,25 @@ void InstanceBuilder::SetPhysicalDevice(Instance& instance)
 
     for (int32_t i = rateables.count() - 1; i >= 0; i--)
     {
+        auto& rateable = rateables[i];
+
+        VkPhysicalDeviceFeatures features;
+        vkGetPhysicalDeviceFeatures(rateable.device, &features);
+
+        if (!features.samplerAnisotropy)
+            continue;
+
+        // Check if this CPU can support ALL required extensions.
         bool valid = true;
         for (uint32_t j = 0; j < requiredExtensions.length(); j++)
         {
             auto required = requiredExtensions[j];
             bool found = false;
 
-            // Available list/contains.
-            for (auto& available : availableExtensions) {
+            // Can use a hashset for this but this is a small project anyway.
+            for (uint32_t j = 0; j < availableExtensions.length(); j++)
+            {
+                auto available = availableExtensions[j];
                 if (strcmp(required, available.extensionName) == 0) {
                     found = true;
                     break;
@@ -155,11 +166,35 @@ void InstanceBuilder::SetPhysicalDevice(Instance& instance)
                 break;
             }
         }
+
+        VkPhysicalDeviceProperties properties;
+        
+        vkGetPhysicalDeviceProperties(rateable.device, &properties);
+        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+            rateable.rating += 1e4;
+
+        // Larger textures are better
+        rateable.rating += properties.limits.maxImageDimension2D;
+
+        // VRAM size
+        VkPhysicalDeviceMemoryProperties memProps;
+        vkGetPhysicalDeviceMemoryProperties(rateable.device, &memProps);
+
+        VkDeviceSize localHeapSize = 0;
+        for (uint32_t i = 0; i < memProps.memoryHeapCount; i++)
+        {
+            if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
+                localHeapSize += memProps.memoryHeaps[i].size;
+        }
+
+        rateable.rating += static_cast<uint32_t>(localHeapSize / (1024 * 1024 * 1024)); // GB
     }
 
-    
-
-    instance._physicalDevice = devices[0];
+    // Sort by rating.
+    rateables.sort([](Rateable& a, Rateable& b) {
+        return a.rating > b.rating;
+    });
+    instance._physicalDevice = rateables[0].device;
 }
 
 void InstanceBuilder::SetLogicalDevice(Instance& instance)
