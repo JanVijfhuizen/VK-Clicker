@@ -69,11 +69,9 @@ void Instance::RecreateSwapChain(Window& window)
 {
     _resolution = window.GetResolution();
 
-    // Destroy old swapchain.
-    if (_swapChain)
-    {
-        vkDestroySwapchainKHR(_device, _swapChain, nullptr);
-    }
+    VkSwapchainKHR oldSwapchain = _swapChain;
+    if (oldSwapchain)
+        DestroySwapChain();
 
     auto _ = mem::scope(TEMP);
 
@@ -85,11 +83,15 @@ void Instance::RecreateSwapChain(Window& window)
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     createInfo.surface = _surface;
     createInfo.minImageCount = details.capabilities.minImageCount + 1;
+    if(details.capabilities.maxImageCount != 0)
+        createInfo.minImageCount = jv::Min(createInfo.minImageCount, details.capabilities.maxImageCount);
+
     createInfo.imageFormat = format.format;
     createInfo.imageColorSpace = format.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | 
+        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     uint32_t queueFamilyIndices[] = {
         queueFamily.graphics, 
@@ -104,15 +106,60 @@ void Instance::RecreateSwapChain(Window& window)
     }
     else {
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        createInfo.queueFamilyIndexCount = 0;
+        createInfo.pQueueFamilyIndices = nullptr;
     }
 
     createInfo.preTransform = details.capabilities.currentTransform;
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    if (!(details.capabilities.supportedTransforms & details.capabilities.currentTransform))
+        createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+
+    VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    auto flags = details.capabilities.supportedCompositeAlpha;
+    if (!(flags & compositeAlpha)) {
+        if (flags & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR)
+            compositeAlpha = VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
+        else if (flags & VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR)
+            compositeAlpha = VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR;
+        else if (flags & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR)
+            compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+    }
+    createInfo.compositeAlpha = compositeAlpha;
+ 
     createInfo.presentMode = ChooseSwapPresentMode(details.presentModes);
     createInfo.clipped = VK_TRUE;
-    createInfo.oldSwapchain = VK_NULL_HANDLE;
+    createInfo.oldSwapchain = oldSwapchain;
 
-    vkCreateSwapchainKHR(_device, &createInfo, nullptr, &_swapChain);
+    auto result = vkCreateSwapchainKHR(_device, &createInfo, nullptr, &_swapChain);
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("Failed to create Swap Chain!");
+
+    // Create images.
+    uint32_t imageCount = _images.length();
+    if (!oldSwapchain)
+    {        
+        vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, nullptr);
+        _images = mem::Arr<VkImage>(_arena, imageCount);
+        _views = mem::Arr<VkImageView>(_arena, imageCount);
+    }
+
+    vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, _images.ptr());
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format.format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    for (uint32_t i = 0; i < _images.length(); i++)
+    {
+        viewInfo.image = _images[i];
+        vkCreateImageView(_device, &viewInfo, nullptr, &_views[i]);
+    }
 }
 
 Instance::SwapChainSupportDetails Instance::TEMP_GetSwapChainSupportDetails()
@@ -208,9 +255,19 @@ VkExtent2D Instance::ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capab
     return actualExtent;
 }
 
-Instance InstanceBuilder::Build(Window& window)
+void Instance::DestroySwapChain()
 {
+    for (uint32_t i = 0; i < _images.length(); i++)
+        vkDestroyImageView(_device, _views[i], nullptr);
+    vkDestroySwapchainKHR(_device, _swapChain, nullptr);
+}
+
+Instance InstanceBuilder::Build(ARENA arena, Window& window)
+{
+    assert(arena != TEMP);
+
     Instance instance{};
+    instance._arena = arena;
     instance._resolution = window.GetResolution();
     instance._preferredPresentMode = _preferredPresentMode;
 
@@ -240,18 +297,19 @@ Instance InstanceBuilder::Build(Window& window)
     createInfo.enabledExtensionCount = extensions.length();
     createInfo.ppEnabledExtensionNames = extensions.ptr();
 
-    if (vkCreateInstance(&createInfo, nullptr, &instance._value) != VK_SUCCESS) {
+    if (vkCreateInstance(&createInfo, nullptr, &instance._value) != VK_SUCCESS)
         throw std::runtime_error("Failed to create Vulkan instance!");
-    }
 
-    if (glfwCreateWindowSurface(instance._value, window.Ptr(), nullptr, &instance._surface) != VK_SUCCESS) {
+    if (glfwCreateWindowSurface(instance._value, window.Ptr(), nullptr, &instance._surface) != VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface!");
-    }
 
     SetPhysicalDevice(instance);
     SetLogicalDevice(instance);
-    CreateDebugUtilsMessengerEXT(instance);
+    auto result = CreateDebugUtilsMessengerEXT(instance);
+    if(result != VK_SUCCESS)
+        throw std::runtime_error("Failed to create Debug Messenger!");
     
+    SetCommandPool(instance);
     instance.RecreateSwapChain(window);
     return instance;
 }
@@ -407,11 +465,20 @@ void InstanceBuilder::SetLogicalDevice(Instance& instance)
     createInfo.queueCreateInfoCount = queueCreateInfos.length();
     createInfo.pQueueCreateInfos = queueCreateInfos.ptr();
 
+    const char* deviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    createInfo.enabledExtensionCount = 1;
+    createInfo.ppEnabledExtensionNames = deviceExtensions;
+
     if (vkCreateDevice(instance._physicalDevice, &createInfo, nullptr, &instance._device) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create logical device!");
     }
 
-    vkGetDeviceQueue(instance._device, 0, 0, &instance._graphicsQueue);
+    vkGetDeviceQueue(instance._device, queueFamily.graphics, 0, &instance._graphicsQueue);
+
+    if (queueFamily.graphics != queueFamily.present)
+        vkGetDeviceQueue(instance._device, queueFamily.present, 0, &instance._presentQueue);
+    else
+        instance._presentQueue = instance._graphicsQueue;
 }
 
 QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
@@ -456,7 +523,7 @@ QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
 
 void Instance::OnScopeClear()
 {
-    vkDestroySwapchainKHR(_device, _swapChain, nullptr);
+    DestroySwapChain();
 
     vkDestroyCommandPool(_device, _cmdComputePool, nullptr);
     vkDestroyCommandPool(_device, _cmdTransferPool, nullptr);

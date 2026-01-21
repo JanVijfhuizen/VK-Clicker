@@ -42,6 +42,7 @@ private:
 	VkPhysicalDevice _physicalDevice;
 	VkDevice _device;
 	VkQueue _graphicsQueue;
+	VkQueue _presentQueue;
 	VkDebugUtilsMessengerEXT _debugMessenger;
 	QueueFamily queueFamily;
 	VkCommandPool _cmdGraphicsPool;
@@ -49,20 +50,25 @@ private:
 	VkCommandPool _cmdTransferPool;
 	VkCommandPool _cmdComputePool;
 
-	VkSwapchainKHR _swapChain = nullptr;
+	ARENA _arena;
+	mem::Arr<VkImage> _images;
+	mem::Arr<VkImageView> _views;
 
 	PresentMode _preferredPresentMode;
 	glm::ivec2 _resolution;
+
+	VkSwapchainKHR _swapChain = VK_NULL_HANDLE;
 
 	SwapChainSupportDetails TEMP_GetSwapChainSupportDetails();
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats);
 	VkPresentModeKHR ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes);
 	VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+	void DestroySwapChain();
 };
 
 struct InstanceBuilder final
 {
-	Instance Build(Window& window);
+	Instance Build(ARENA arena, Window& window);
 
 	InstanceBuilder& SetName(const char* name);
 	InstanceBuilder& AddGLFWSupport();
