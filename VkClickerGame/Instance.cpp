@@ -2,6 +2,7 @@
 #include "Instance.h"
 #include <GLFW/glfw3.h>
 #include "Vec.h"
+#include "Math.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -64,9 +65,154 @@ void InstanceBuilder::SetCommandPool(Instance& instance)
     }
 }
 
+void Instance::RecreateSwapChain(Window& window)
+{
+    _resolution = window.GetResolution();
+
+    // Destroy old swapchain.
+    if (_swapChain)
+    {
+        vkDestroySwapchainKHR(_device, _swapChain, nullptr);
+    }
+
+    auto _ = mem::scope(TEMP);
+
+    auto details = TEMP_GetSwapChainSupportDetails();
+    auto format = ChooseSwapSurfaceFormat(details.formats);
+    auto extent = ChooseSwapChainExtent(details.capabilities);
+
+    VkSwapchainCreateInfoKHR createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    createInfo.surface = _surface;
+    createInfo.minImageCount = details.capabilities.minImageCount + 1;
+    createInfo.imageFormat = format.format;
+    createInfo.imageColorSpace = format.colorSpace;
+    createInfo.imageExtent = extent;
+    createInfo.imageArrayLayers = 1;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    uint32_t queueFamilyIndices[] = {
+        queueFamily.graphics, 
+        queueFamily.present
+    };
+
+    // If sharing the same queue.
+    if (queueFamily.graphics != queueFamily.present) {
+        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        createInfo.queueFamilyIndexCount = 2;
+        createInfo.pQueueFamilyIndices = queueFamilyIndices;
+    }
+    else {
+        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    }
+
+    createInfo.preTransform = details.capabilities.currentTransform;
+    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    createInfo.presentMode = ChooseSwapPresentMode(details.presentModes);
+    createInfo.clipped = VK_TRUE;
+    createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+    vkCreateSwapchainKHR(_device, &createInfo, nullptr, &_swapChain);
+}
+
+Instance::SwapChainSupportDetails Instance::TEMP_GetSwapChainSupportDetails()
+{
+    SwapChainSupportDetails details{};
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        _physicalDevice, _surface, &details.capabilities);
+
+    uint32_t formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(
+        _physicalDevice, _surface, &formatCount, nullptr);
+
+    if (formatCount != 0) {
+        auto& arr = details.formats = mem::Arr<VkSurfaceFormatKHR>(TEMP, formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(
+            _physicalDevice, _surface, &formatCount, arr.ptr());
+    }
+
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        _physicalDevice, _surface, &presentModeCount, nullptr);
+
+    if (presentModeCount != 0) {
+        auto& arr = details.presentModes = mem::Arr<VkPresentModeKHR>(TEMP, presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(
+            _physicalDevice, _surface, &presentModeCount, arr.ptr());
+    }
+
+    return details;
+}
+
+VkSurfaceFormatKHR Instance::ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats)
+{
+    VkSurfaceFormatKHR format = formats[0];
+    formats.iterb([&format](auto& f, auto) {
+        if (f.format == VK_FORMAT_B8G8R8A8_SRGB &&
+            f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        {
+            format = f;
+            return false;
+        }
+        return true;
+        });
+    return format;
+}
+
+VkPresentModeKHR Instance::ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes)
+{
+    VkPresentModeKHR mode{};
+    VkPresentModeKHR preferred;
+    switch (_preferredPresentMode)
+    {
+    case PresentMode::immediate:
+        preferred = VK_PRESENT_MODE_IMMEDIATE_KHR;
+        break;
+    case PresentMode::mailbox:
+        preferred = VK_PRESENT_MODE_MAILBOX_KHR;
+        break;
+    case PresentMode::fifo:
+    default:
+        preferred = VK_PRESENT_MODE_FIFO_KHR;
+        break;
+    }
+
+    modes.iterb([&mode, preferred](auto& m, auto) {
+        if (m == preferred)
+        {
+            mode = m;
+            return false;
+        }
+        return true;
+        });
+    return mode;
+}
+
+VkExtent2D Instance::ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+{
+    if (capabilities.currentExtent.width != UINT32_MAX)
+        return capabilities.currentExtent;
+
+    VkExtent2D actualExtent = { _resolution.x, _resolution.y };
+
+    actualExtent.width = jv::Clamp(
+        actualExtent.width,
+        capabilities.minImageExtent.width,
+        capabilities.maxImageExtent.width);
+
+    actualExtent.height = jv::Clamp(
+        actualExtent.height,
+        capabilities.minImageExtent.height,
+        capabilities.maxImageExtent.height);
+
+    return actualExtent;
+}
+
 Instance InstanceBuilder::Build(Window& window)
 {
     Instance instance{};
+    instance._resolution = window.GetResolution();
+    instance._preferredPresentMode = _preferredPresentMode;
 
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -105,7 +251,8 @@ Instance InstanceBuilder::Build(Window& window)
     SetPhysicalDevice(instance);
     SetLogicalDevice(instance);
     CreateDebugUtilsMessengerEXT(instance);
-
+    
+    instance.RecreateSwapChain(window);
     return instance;
 }
 
@@ -124,6 +271,12 @@ InstanceBuilder& InstanceBuilder::AddGLFWSupport()
 InstanceBuilder& InstanceBuilder::SetValidationLayers(mem::Arr<const char*> layers)
 {
     _validationLayers = layers;
+    return *this;
+}
+
+InstanceBuilder& InstanceBuilder::SetPreferredPresentMode(PresentMode mode)
+{
+    _preferredPresentMode = mode;
     return *this;
 }
 
@@ -303,6 +456,8 @@ QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
 
 void Instance::OnScopeClear()
 {
+    vkDestroySwapchainKHR(_device, _swapChain, nullptr);
+
     vkDestroyCommandPool(_device, _cmdComputePool, nullptr);
     vkDestroyCommandPool(_device, _cmdTransferPool, nullptr);
     vkDestroyCommandPool(_device, _cmdPresentPool, nullptr);

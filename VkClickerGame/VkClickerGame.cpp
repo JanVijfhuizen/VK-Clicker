@@ -13,7 +13,7 @@ int main()
     scope.bind(window);
 
     auto instanceBuilder = InstanceBuilder();
-    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().Build(window);
+    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().SetPreferredPresentMode(PresentMode::mailbox).Build(window);
     scope.bind(instance);
 
     while (window.Update()) {

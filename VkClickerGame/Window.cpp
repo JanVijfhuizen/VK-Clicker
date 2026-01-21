@@ -4,6 +4,7 @@
 Window WindowBuilder::Build()
 {
 	Window window{};
+	window._resolution = _resolution;
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	window._value = glfwCreateWindow(_resolution.x, _resolution.y, _name, nullptr, nullptr);
@@ -34,6 +35,11 @@ void Window::OnScopeClear()
 {
 	glfwDestroyWindow(_value);
 	glfwTerminate();
+}
+
+glm::ivec2 Window::GetResolution()
+{
+	return _resolution;
 }
 
 GLFWwindow* Window::Ptr()

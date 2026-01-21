@@ -1,6 +1,12 @@
 #pragma once
 #include "Window.h"
 
+enum class PresentMode {
+	immediate,
+	mailbox,
+	fifo
+};
+
 struct QueueFamily final {
 	union
 	{
@@ -22,8 +28,15 @@ struct Instance final : public mem::IScoped
 	friend struct InstanceBuilder;
 
 	virtual void OnScopeClear() override;
+	void RecreateSwapChain(Window& window);
 
 private:
+	struct SwapChainSupportDetails {
+		VkSurfaceCapabilitiesKHR capabilities;
+		mem::Arr<VkSurfaceFormatKHR> formats{};
+		mem::Arr<VkPresentModeKHR> presentModes{};
+	};
+
 	VkInstance _value;
 	VkSurfaceKHR _surface;
 	VkPhysicalDevice _physicalDevice;
@@ -35,6 +48,16 @@ private:
 	VkCommandPool _cmdPresentPool;
 	VkCommandPool _cmdTransferPool;
 	VkCommandPool _cmdComputePool;
+
+	VkSwapchainKHR _swapChain = nullptr;
+
+	PresentMode _preferredPresentMode;
+	glm::ivec2 _resolution;
+
+	SwapChainSupportDetails TEMP_GetSwapChainSupportDetails();
+	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats);
+	VkPresentModeKHR ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes);
+	VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 };
 
 struct InstanceBuilder final
@@ -44,6 +67,7 @@ struct InstanceBuilder final
 	InstanceBuilder& SetName(const char* name);
 	InstanceBuilder& AddGLFWSupport();
 	InstanceBuilder& SetValidationLayers(mem::Arr<const char*> layers);
+	InstanceBuilder& SetPreferredPresentMode(PresentMode mode);
 
 private:
 	Instance _instance{};
@@ -51,6 +75,7 @@ private:
 	const char** _windowingExtensions;
 	uint32_t _windowingExtensionsCount;
 	mem::Arr<const char*> _validationLayers;
+	PresentMode _preferredPresentMode = PresentMode::immediate;
 
 	mem::Arr<VkPhysicalDevice> GetPhysicalDevices(Instance& instance);
 	void SetPhysicalDevice(Instance& instance);

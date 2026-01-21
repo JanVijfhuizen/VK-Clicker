@@ -6,11 +6,13 @@ struct Window final : public mem::IScoped
 
 	bool Update();
 	virtual void OnScopeClear() override;
+	glm::ivec2 GetResolution();
 
 	GLFWwindow* Ptr();
 
 private:
 	GLFWwindow* _value;
+	glm::ivec2 _resolution;
 };
 
 struct WindowBuilder final
