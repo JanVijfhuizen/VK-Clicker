@@ -69,8 +69,8 @@ void Instance::RecreateSwapChain(Window& window)
 {
     _resolution = window.GetResolution();
 
-    VkSwapchainKHR oldSwapchain = _swapChain;
-    if (oldSwapchain)
+    VkSwapchainKHR oldSwapChain = _swapChain;
+    if (oldSwapChain)
         DestroySwapChain();
 
     auto _ = mem::scope(TEMP);
@@ -128,38 +128,14 @@ void Instance::RecreateSwapChain(Window& window)
  
     createInfo.presentMode = ChooseSwapPresentMode(details.presentModes);
     createInfo.clipped = VK_TRUE;
-    createInfo.oldSwapchain = oldSwapchain;
+    createInfo.oldSwapchain = oldSwapChain;
 
     auto result = vkCreateSwapchainKHR(_device, &createInfo, nullptr, &_swapChain);
     if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to create Swap Chain!");
 
-    // Create images.
-    uint32_t imageCount = _images.length();
-    if (!oldSwapchain)
-    {        
-        vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, nullptr);
-        _images = mem::Arr<VkImage>(_arena, imageCount);
-        _views = mem::Arr<VkImageView>(_arena, imageCount);
-    }
-
-    vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, _images.ptr());
-
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = format.format;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    for (uint32_t i = 0; i < _images.length(); i++)
-    {
-        viewInfo.image = _images[i];
-        vkCreateImageView(_device, &viewInfo, nullptr, &_views[i]);
-    }
+    CreateImages(format, oldSwapChain);
+    CreateRenderPass(format);
 }
 
 Instance::SwapChainSupportDetails Instance::TEMP_GetSwapChainSupportDetails()
@@ -255,8 +231,71 @@ VkExtent2D Instance::ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capab
     return actualExtent;
 }
 
+void Instance::CreateImages(VkSurfaceFormatKHR format, VkSwapchainKHR oldSwapChain)
+{
+    // Create images.
+    uint32_t imageCount = _images.length();
+    if (!oldSwapChain)
+    {
+        vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, nullptr);
+        _images = mem::Arr<VkImage>(_arena, imageCount);
+        _views = mem::Arr<VkImageView>(_arena, imageCount);
+    }
+
+    vkGetSwapchainImagesKHR(_device, _swapChain, &imageCount, _images.ptr());
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format.format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    for (uint32_t i = 0; i < _images.length(); i++)
+    {
+        viewInfo.image = _images[i];
+        vkCreateImageView(_device, &viewInfo, nullptr, &_views[i]);
+    }
+}
+
+void Instance::CreateRenderPass(VkSurfaceFormatKHR format)
+{
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = format.format;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+
+    if (vkCreateRenderPass(_device, &renderPassInfo, nullptr, &_renderPass) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create render pass!");
+}
+
 void Instance::DestroySwapChain()
 {
+    vkDestroyRenderPass(_device, _renderPass, nullptr);
     for (uint32_t i = 0; i < _images.length(); i++)
         vkDestroyImageView(_device, _views[i], nullptr);
     vkDestroySwapchainKHR(_device, _swapChain, nullptr);
