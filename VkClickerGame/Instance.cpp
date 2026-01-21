@@ -33,6 +33,37 @@ VkResult InstanceBuilder::CreateDebugUtilsMessengerEXT(Instance& instance)
         : VK_ERROR_EXTENSION_NOT_PRESENT;
 }
 
+void InstanceBuilder::SetCommandPool(Instance& instance)
+{
+    // Create command pool
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = instance.queueFamily.graphics;
+
+    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdGraphicsPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create graphics command pool!");
+    }
+
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    poolInfo.queueFamilyIndex = instance.queueFamily.present;
+    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdPresentPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create present command pool!");
+    }
+
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    poolInfo.queueFamilyIndex = instance.queueFamily.transfer;
+    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdTransferPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create transfer command pool!");
+    }
+
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    poolInfo.queueFamilyIndex = instance.queueFamily.compute;
+    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdComputePool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create compute command pool!");
+    }
+}
+
 Instance InstanceBuilder::Build(Window& window)
 {
     Instance instance{};
@@ -201,7 +232,7 @@ void InstanceBuilder::SetLogicalDevice(Instance& instance)
 {
     // Create queues.
     float queuePriority = 1;
-    auto queueFamily = GetQueueFamily(instance);
+    auto queueFamily = instance.queueFamily = GetQueueFamily(instance);
 
     // Very hacky but it's whatever.
     auto familyVec = mem::Vec<uint32_t>(TEMP, 2);
@@ -230,7 +261,7 @@ void InstanceBuilder::SetLogicalDevice(Instance& instance)
     vkGetDeviceQueue(instance._device, 0, 0, &instance._graphicsQueue);
 }
 
-InstanceBuilder::QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
+QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
 {
     QueueFamily family;
 
@@ -247,13 +278,21 @@ InstanceBuilder::QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
             family.graphics = i;
         }
 
+        if (current.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+            family.transfer = i;
+        }
+
+        if (current.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            family.compute = i;
+        }
+
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(instance._physicalDevice, i, instance._surface, &presentSupport);
         if (presentSupport) {
             family.present = i;
         }
 
-        if (family.Valid())
+        if (family.Complete())
             return false;
         i++;
         return true;
@@ -264,6 +303,11 @@ InstanceBuilder::QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
 
 void Instance::OnScopeClear()
 {
+    vkDestroyCommandPool(_device, _cmdComputePool, nullptr);
+    vkDestroyCommandPool(_device, _cmdTransferPool, nullptr);
+    vkDestroyCommandPool(_device, _cmdPresentPool, nullptr);
+    vkDestroyCommandPool(_device, _cmdGraphicsPool, nullptr);
+
     auto DestroyDebugUtilsMessengerEXT =
         (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(_value, "vkDestroyDebugUtilsMessengerEXT");
 
@@ -277,7 +321,12 @@ void Instance::OnScopeClear()
     vkDestroyInstance(_value, nullptr);
 }
 
-bool InstanceBuilder::QueueFamily::Valid()
+bool QueueFamily::Complete()
 {
-    return graphics != -1 && present != -1;
+    for (uint32_t i = 0; i < sizeof(queues) / sizeof(uint32_t); i++)
+    {
+        if (queues[i] == -1)
+            return false;
+    }
+    return true;
 }

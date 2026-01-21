@@ -1,6 +1,22 @@
 #pragma once
 #include "Window.h"
 
+struct QueueFamily final {
+	union
+	{
+		uint32_t queues[4]{UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX };
+		struct
+		{
+			uint32_t graphics;
+			uint32_t present;
+			uint32_t transfer;
+			uint32_t compute;
+		};
+	};
+	
+	bool Complete();
+};
+
 struct Instance final : public mem::IScoped
 {
 	friend struct InstanceBuilder;
@@ -14,6 +30,11 @@ private:
 	VkDevice _device;
 	VkQueue _graphicsQueue;
 	VkDebugUtilsMessengerEXT _debugMessenger;
+	QueueFamily queueFamily;
+	VkCommandPool _cmdGraphicsPool;
+	VkCommandPool _cmdPresentPool;
+	VkCommandPool _cmdTransferPool;
+	VkCommandPool _cmdComputePool;
 };
 
 struct InstanceBuilder final
@@ -25,13 +46,6 @@ struct InstanceBuilder final
 	InstanceBuilder& SetValidationLayers(mem::Arr<const char*> layers);
 
 private:
-	struct QueueFamily final {
-		uint32_t graphics = -1;
-		uint32_t present = -1;
-
-		bool Valid();
-	};
-
 	Instance _instance{};
 	const char* _name = "VK Instance";
 	const char** _windowingExtensions;
@@ -43,5 +57,6 @@ private:
 	void SetLogicalDevice(Instance& instance);
 	QueueFamily GetQueueFamily(Instance& instance);
 	VkResult CreateDebugUtilsMessengerEXT(Instance& instance);
+	void SetCommandPool(Instance& instance);
 };
 
