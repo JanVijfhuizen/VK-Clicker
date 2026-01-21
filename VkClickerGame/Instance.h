@@ -53,7 +53,9 @@ private:
 	ARENA _arena;
 	mem::Arr<VkImage> _images;
 	mem::Arr<VkImageView> _views;
+	mem::Arr<VkFramebuffer> _frameBuffers;
 	VkRenderPass _renderPass;
+	VkExtent2D _extent;
 
 	PresentMode _preferredPresentMode;
 	glm::ivec2 _resolution;
@@ -63,9 +65,10 @@ private:
 	SwapChainSupportDetails TEMP_GetSwapChainSupportDetails();
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats);
 	VkPresentModeKHR ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes);
-	VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+	void SetSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void CreateImages(VkSurfaceFormatKHR format, VkSwapchainKHR oldSwapChain);
 	void CreateRenderPass(VkSurfaceFormatKHR format);
+	void CreateFrameBuffers(VkSwapchainKHR oldSwapChain);
 	void DestroySwapChain();
 };
 

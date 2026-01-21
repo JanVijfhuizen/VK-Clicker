@@ -77,7 +77,7 @@ void Instance::RecreateSwapChain(Window& window)
 
     auto details = TEMP_GetSwapChainSupportDetails();
     auto format = ChooseSwapSurfaceFormat(details.formats);
-    auto extent = ChooseSwapChainExtent(details.capabilities);
+    SetSwapChainExtent(details.capabilities);
 
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -88,7 +88,7 @@ void Instance::RecreateSwapChain(Window& window)
 
     createInfo.imageFormat = format.format;
     createInfo.imageColorSpace = format.colorSpace;
-    createInfo.imageExtent = extent;
+    createInfo.imageExtent = _extent;
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | 
         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -136,6 +136,7 @@ void Instance::RecreateSwapChain(Window& window)
 
     CreateImages(format, oldSwapChain);
     CreateRenderPass(format);
+    CreateFrameBuffers(oldSwapChain);
 }
 
 Instance::SwapChainSupportDetails Instance::TEMP_GetSwapChainSupportDetails()
@@ -211,10 +212,10 @@ VkPresentModeKHR Instance::ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR
     return mode;
 }
 
-VkExtent2D Instance::ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+void Instance::SetSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities)
 {
     if (capabilities.currentExtent.width != UINT32_MAX)
-        return capabilities.currentExtent;
+        _extent = capabilities.currentExtent;
 
     VkExtent2D actualExtent = { _resolution.x, _resolution.y };
 
@@ -227,8 +228,7 @@ VkExtent2D Instance::ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capab
         actualExtent.height,
         capabilities.minImageExtent.height,
         capabilities.maxImageExtent.height);
-
-    return actualExtent;
+    _extent = actualExtent;
 }
 
 void Instance::CreateImages(VkSurfaceFormatKHR format, VkSwapchainKHR oldSwapChain)
@@ -293,8 +293,33 @@ void Instance::CreateRenderPass(VkSurfaceFormatKHR format)
         throw std::runtime_error("Failed to create render pass!");
 }
 
+void Instance::CreateFrameBuffers(VkSwapchainKHR oldSwapChain)
+{
+    if (!oldSwapChain)
+        _frameBuffers = mem::Arr<VkFramebuffer>(_arena, _images.length());
+
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = _renderPass;
+    framebufferInfo.attachmentCount = 1;
+    framebufferInfo.width = _extent.width;
+    framebufferInfo.height = _extent.height;
+    framebufferInfo.layers = 1;
+
+    for (uint32_t i = 0; i < _images.length(); i++)
+    {
+        VkImageView attachments[] = { _views[i] };
+        framebufferInfo.pAttachments = attachments;
+
+        if (vkCreateFramebuffer(_device, &framebufferInfo, nullptr, &_frameBuffers[i]) != VK_SUCCESS)
+            throw std::runtime_error("failed to create framebuffer!");
+    }
+}
+
 void Instance::DestroySwapChain()
 {
+    for (uint32_t i = 0; i < _frameBuffers.length(); i++)
+        vkDestroyFramebuffer(_device, _frameBuffers[i], nullptr);
     vkDestroyRenderPass(_device, _renderPass, nullptr);
     for (uint32_t i = 0; i < _images.length(); i++)
         vkDestroyImageView(_device, _views[i], nullptr);
