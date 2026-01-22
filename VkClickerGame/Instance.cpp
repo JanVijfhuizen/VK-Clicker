@@ -138,6 +138,7 @@ void Instance::RecreateSwapChain(Window& window)
     CreateImages(format, oldSwapChain);
     CreateRenderPass(format);
     CreateFrameBuffers(oldSwapChain);
+    CreateDefaultPipeline();
 }
 
 Instance::SwapChainSupportDetails Instance::TEMP_GetSwapChainSupportDetails()
@@ -319,6 +320,7 @@ void Instance::CreateFrameBuffers(VkSwapchainKHR oldSwapChain)
 
 void Instance::DestroySwapChain()
 {
+    vkDestroyPipeline(_device, _pipeline, nullptr);
     for (uint32_t i = 0; i < _frameBuffers.length(); i++)
         vkDestroyFramebuffer(_device, _frameBuffers[i], nullptr);
     vkDestroyRenderPass(_device, _renderPass, nullptr);
@@ -363,10 +365,10 @@ void InstanceBuilder::CreateDefaultPipelineLayout()
     vkCreatePipelineLayout(_instance._device, &pipelineLayoutInfo, nullptr, &_instance._pipelineLayout);
 }
 
-void InstanceBuilder::CreateDefaultPipeline()
+void Instance::CreateDefaultPipeline()
 {
-    auto frag = LoadShader(_instance._device, _defaultFragPath);
-    auto vert = LoadShader(_instance._device, _defaultVertPath);
+    auto frag = LoadShader(_device, _defaultFragPath);
+    auto vert = LoadShader(_device, _defaultVertPath);
 
     VkPipelineShaderStageCreateInfo vertStage{};
     vertStage.sType =
@@ -414,19 +416,17 @@ void InstanceBuilder::CreateDefaultPipeline()
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    auto extent = _instance._extent;
-
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)extent.width;
-    viewport.height = (float)extent.height;
+    viewport.width = (float)_extent.width;
+    viewport.height = (float)_extent.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
     VkRect2D scissor{};
     scissor.offset = { 0, 0 };
-    scissor.extent = extent;
+    scissor.extent = _extent;
 
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType =
@@ -436,18 +436,59 @@ void InstanceBuilder::CreateDefaultPipeline()
     viewportState.scissorCount = 1;
     viewportState.pScissors = &scissor;
 
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasConstantFactor = 0.0f;
+    rasterizer.depthBiasClamp = 0.0f;
+    rasterizer.depthBiasSlopeFactor = 0.0f;
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable = VK_FALSE;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+
     VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = stages;
     pipelineInfo.pVertexInputState = &vertexInput;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.layout = _instance._pipelineLayout;
-    pipelineInfo.renderPass = _instance._renderPass;
-    pipelineInfo.subpass = 0;
     pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = nullptr;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = nullptr;
+    pipelineInfo.layout = _pipelineLayout;
+    pipelineInfo.renderPass = _renderPass;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.basePipelineIndex = -1;
 
-    vkDestroyShaderModule(_instance._device, frag, nullptr);
-    vkDestroyShaderModule(_instance._device, vert, nullptr);
+    if (vkCreateGraphicsPipelines(_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &_pipeline) != VK_SUCCESS)
+        throw std::runtime_error("failed to create graphics pipeline!");
+
+    vkDestroyShaderModule(_device, frag, nullptr);
+    vkDestroyShaderModule(_device, vert, nullptr);
 }
 
 Instance InstanceBuilder::Build(ARENA arena, Window& window)
@@ -458,6 +499,8 @@ Instance InstanceBuilder::Build(ARENA arena, Window& window)
     _instance._arena = arena;
     _instance._resolution = window.GetResolution();
     _instance._preferredPresentMode = _preferredPresentMode;
+    _instance._defaultVertPath = _defaultVertPath;
+    _instance._defaultFragPath = _defaultFragPath;
 
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -499,7 +542,6 @@ Instance InstanceBuilder::Build(ARENA arena, Window& window)
 
     CreateDefaultDescriptors();
     CreateDefaultPipelineLayout();
-    CreateDefaultPipeline();
     
     SetCommandPool();
     _instance.RecreateSwapChain(window);

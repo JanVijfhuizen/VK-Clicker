@@ -63,6 +63,8 @@ private:
 	// Default render pipeline.
 	VkDescriptorSetLayout _descriptorSetLayout;
 	VkPipelineLayout _pipelineLayout;
+	const char* _defaultVertPath;
+	const char* _defaultFragPath;
 
 	ARENA _arena;
 	mem::Arr<VkImage> _images;
@@ -75,6 +77,7 @@ private:
 	glm::ivec2 _resolution;
 
 	VkSwapchainKHR _swapChain = VK_NULL_HANDLE;
+	VkPipeline _pipeline;
 
 	SwapChainSupportDetails TEMP_GetSwapChainSupportDetails();
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats);
@@ -84,6 +87,7 @@ private:
 	void CreateRenderPass(VkSurfaceFormatKHR format);
 	void CreateFrameBuffers(VkSwapchainKHR oldSwapChain);
 	void DestroySwapChain();
+	void CreateDefaultPipeline();
 };
 
 struct InstanceBuilder final
@@ -115,6 +119,5 @@ private:
 	void SetCommandPool();
 	void CreateDefaultDescriptors();
 	void CreateDefaultPipelineLayout();
-	void CreateDefaultPipeline();
 };
 
