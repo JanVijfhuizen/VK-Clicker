@@ -135,6 +135,15 @@ void Instance::RecreateSwapChain(Window& window)
     if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to create Swap Chain!");
 
+    if (!oldSwapChain)
+        _cmdBuffers = mem::Arr<VkCommandBuffer>(_arena, _images.length());
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = _cmdGraphicsPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = _cmdBuffers.length();
+    vkAllocateCommandBuffers(_device, &allocInfo, _cmdBuffers.ptr());
+
     CreateImages(format, oldSwapChain);
     CreateRenderPass(format);
     CreateFrameBuffers(oldSwapChain);
@@ -320,6 +329,7 @@ void Instance::CreateFrameBuffers(VkSwapchainKHR oldSwapChain)
 
 void Instance::DestroySwapChain()
 {
+    vkFreeCommandBuffers(_device, _cmdGraphicsPool, 4, _cmdBuffers.ptr());
     vkDestroyPipeline(_device, _pipeline, nullptr);
     for (uint32_t i = 0; i < _frameBuffers.length(); i++)
         vkDestroyFramebuffer(_device, _frameBuffers[i], nullptr);
@@ -545,6 +555,18 @@ Instance InstanceBuilder::Build(ARENA arena, Window& window)
     
     SetCommandPool();
     _instance.RecreateSwapChain(window);
+
+    VkSemaphoreCreateInfo semInfo{};
+    semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    vkCreateSemaphore(_instance._device, &semInfo, nullptr, &_instance._imageAvailableSemaphore);
+    vkCreateSemaphore(_instance._device, &semInfo, nullptr, &_instance._renderFinishedSemaphore);
+    vkCreateFence(_instance._device, &fenceInfo, nullptr, &_instance._inFlightFence);
+
     return _instance;
 }
 
@@ -765,6 +787,102 @@ QueueFamily InstanceBuilder::GetQueueFamily()
         });
     
     return family;
+}
+
+void Instance::Update()
+{
+    uint32_t imageIndex;
+
+    vkWaitForFences(_device, 1, &_inFlightFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(_device, 1, &_inFlightFence);
+
+    vkAcquireNextImageKHR(
+        _device,
+        _swapChain,
+        UINT64_MAX,
+        _imageAvailableSemaphore,
+        VK_NULL_HANDLE,
+        &imageIndex
+    );
+
+    VkCommandBuffer cmd = _cmdBuffers[imageIndex];
+    vkResetCommandBuffer(cmd, 0);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    vkBeginCommandBuffer(cmd, &beginInfo);
+
+    VkClearValue clearColor{};
+    clearColor.color = { {0.1f, 0.1f, 0.1f, 1.0f} };
+
+    VkRenderPassBeginInfo rpInfo{};
+    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rpInfo.renderPass = _renderPass;
+    rpInfo.framebuffer = _frameBuffers[imageIndex];
+    rpInfo.renderArea.offset = { 0, 0 };
+    rpInfo.renderArea.extent = _extent;
+    rpInfo.clearValueCount = 1;
+    rpInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
+
+    vkCmdBindDescriptorSets(
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        _pipelineLayout,
+        0,
+        1, &_descriptorSet, // todo.
+        0, nullptr
+    );
+
+    VkBuffer vertexBuffers[] = { vertexBuffer }; // todo.
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
+
+    DefPushConstant pc{};
+
+    vkCmdPushConstants(
+        cmd,
+        _pipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT,
+        0,
+        sizeof(DefPushConstant),
+        &pc
+    );
+
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(cmd);
+    vkEndCommandBuffer(cmd);
+
+    VkPipelineStageFlags waitStages[] = {
+    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    };
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &_imageAvailableSemaphore;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmd;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &_renderFinishedSemaphore;
+
+    vkQueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence);
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &_renderFinishedSemaphore;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &_swapChain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    vkQueuePresentKHR(_presentQueue, &presentInfo);
 }
 
 void Instance::OnScopeClear()

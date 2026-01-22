@@ -37,6 +37,7 @@ struct Instance final : public mem::IScoped
 {
 	friend struct InstanceBuilder;
 
+	void Update();
 	virtual void OnScopeClear() override;
 	void RecreateSwapChain(Window& window);
 
@@ -60,6 +61,10 @@ private:
 	VkCommandPool _cmdTransferPool;
 	VkCommandPool _cmdComputePool;
 
+	VkSemaphore _imageAvailableSemaphore;
+	VkSemaphore _renderFinishedSemaphore;
+	VkFence _inFlightFence;
+
 	// Default render pipeline.
 	VkDescriptorSetLayout _descriptorSetLayout;
 	VkPipelineLayout _pipelineLayout;
@@ -70,6 +75,7 @@ private:
 	mem::Arr<VkImage> _images;
 	mem::Arr<VkImageView> _views;
 	mem::Arr<VkFramebuffer> _frameBuffers;
+	mem::Arr<VkCommandBuffer> _cmdBuffers;
 	VkRenderPass _renderPass;
 	VkExtent2D _extent;
 
