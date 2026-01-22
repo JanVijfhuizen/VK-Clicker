@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include "Vec.h"
 #include "Math.h"
+#include "ShaderLoader.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -14,7 +15,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     return VK_FALSE;
 }
 
-VkResult InstanceBuilder::CreateDebugUtilsMessengerEXT(Instance& instance)
+VkResult InstanceBuilder::CreateDebugUtilsMessengerEXT()
 {
     VkDebugUtilsMessengerCreateInfoEXT createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -29,38 +30,38 @@ VkResult InstanceBuilder::CreateDebugUtilsMessengerEXT(Instance& instance)
     createInfo.pfnUserCallback = debugCallback;
     createInfo.pUserData = nullptr; // optional
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)
-        vkGetInstanceProcAddr(instance._value, "vkCreateDebugUtilsMessengerEXT");
-    return func ? func(instance._value, &createInfo, nullptr, &instance._debugMessenger)
+        vkGetInstanceProcAddr(_instance._value, "vkCreateDebugUtilsMessengerEXT");
+    return func ? func(_instance._value, &createInfo, nullptr, &_instance._debugMessenger)
         : VK_ERROR_EXTENSION_NOT_PRESENT;
 }
 
-void InstanceBuilder::SetCommandPool(Instance& instance)
+void InstanceBuilder::SetCommandPool()
 {
     // Create command pool
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = instance.queueFamily.graphics;
+    poolInfo.queueFamilyIndex = _instance.queueFamily.graphics;
 
-    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdGraphicsPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(_instance._device, &poolInfo, nullptr, &_instance._cmdGraphicsPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create graphics command pool!");
     }
 
     poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    poolInfo.queueFamilyIndex = instance.queueFamily.present;
-    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdPresentPool) != VK_SUCCESS) {
+    poolInfo.queueFamilyIndex = _instance.queueFamily.present;
+    if (vkCreateCommandPool(_instance._device, &poolInfo, nullptr, &_instance._cmdPresentPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create present command pool!");
     }
 
     poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    poolInfo.queueFamilyIndex = instance.queueFamily.transfer;
-    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdTransferPool) != VK_SUCCESS) {
+    poolInfo.queueFamilyIndex = _instance.queueFamily.transfer;
+    if (vkCreateCommandPool(_instance._device, &poolInfo, nullptr, &_instance._cmdTransferPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create transfer command pool!");
     }
 
     poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-    poolInfo.queueFamilyIndex = instance.queueFamily.compute;
-    if (vkCreateCommandPool(instance._device, &poolInfo, nullptr, &instance._cmdComputePool) != VK_SUCCESS) {
+    poolInfo.queueFamilyIndex = _instance.queueFamily.compute;
+    if (vkCreateCommandPool(_instance._device, &poolInfo, nullptr, &_instance._cmdComputePool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create compute command pool!");
     }
 }
@@ -326,14 +327,137 @@ void Instance::DestroySwapChain()
     vkDestroySwapchainKHR(_device, _swapChain, nullptr);
 }
 
+void InstanceBuilder::CreateDefaultDescriptors()
+{
+    VkDescriptorSetLayoutBinding colorUboBinding{};
+    colorUboBinding.binding = 0;
+    colorUboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    colorUboBinding.descriptorCount = 1;
+    colorUboBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    colorUboBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo setLayoutInfo{};
+    setLayoutInfo.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    setLayoutInfo.bindingCount = 1;
+    setLayoutInfo.pBindings = &colorUboBinding;
+    setLayoutInfo.flags = 0;
+
+    if (vkCreateDescriptorSetLayout(_instance._device, &setLayoutInfo, nullptr, &_instance._descriptorSetLayout) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create default Descriptor set layout!");
+}
+
+void InstanceBuilder::CreateDefaultPipelineLayout()
+{
+    VkPushConstantRange pushConstantSize{};
+    pushConstantSize.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstantSize.size = sizeof(DefPushConstant);
+    pushConstantSize.offset = 0;
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &_instance._descriptorSetLayout;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantSize;
+    vkCreatePipelineLayout(_instance._device, &pipelineLayoutInfo, nullptr, &_instance._pipelineLayout);
+}
+
+void InstanceBuilder::CreateDefaultPipeline()
+{
+    auto frag = LoadShader(_instance._device, _defaultFragPath);
+    auto vert = LoadShader(_instance._device, _defaultVertPath);
+
+    VkPipelineShaderStageCreateInfo vertStage{};
+    vertStage.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertStage.module = vert;
+    vertStage.pName = "main";
+    vertStage.pSpecializationInfo = nullptr;
+
+    VkPipelineShaderStageCreateInfo fragStage{};
+    fragStage.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragStage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragStage.module = frag;
+    fragStage.pName = "main";
+    fragStage.pSpecializationInfo = nullptr;
+
+    VkPipelineShaderStageCreateInfo stages[] = {
+        vertStage,
+        fragStage
+    };
+
+    VkVertexInputBindingDescription bindingDesc{};
+    bindingDesc.binding = 0;
+    bindingDesc.stride = sizeof(DefVertex);
+    bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription attrDesc{};
+    attrDesc.location = 0;
+    attrDesc.binding = 0;
+    attrDesc.format = VK_FORMAT_R32G32_SFLOAT;
+    attrDesc.offset = offsetof(DefVertex, pos);
+
+    VkPipelineVertexInputStateCreateInfo vertexInput{};
+    vertexInput.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInput.vertexBindingDescriptionCount = 1;
+    vertexInput.pVertexBindingDescriptions = &bindingDesc;
+    vertexInput.vertexAttributeDescriptionCount = 1;
+    vertexInput.pVertexAttributeDescriptions = &attrDesc;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    auto extent = _instance._extent;
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)extent.width;
+    viewport.height = (float)extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = extent;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.pViewports = &viewport;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
+
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = stages;
+    pipelineInfo.pVertexInputState = &vertexInput;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.layout = _instance._pipelineLayout;
+    pipelineInfo.renderPass = _instance._renderPass;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.pViewportState = &viewportState;
+
+    vkDestroyShaderModule(_instance._device, frag, nullptr);
+    vkDestroyShaderModule(_instance._device, vert, nullptr);
+}
+
 Instance InstanceBuilder::Build(ARENA arena, Window& window)
 {
     assert(arena != TEMP);
 
-    Instance instance{};
-    instance._arena = arena;
-    instance._resolution = window.GetResolution();
-    instance._preferredPresentMode = _preferredPresentMode;
+    _instance = {};
+    _instance._arena = arena;
+    _instance._resolution = window.GetResolution();
+    _instance._preferredPresentMode = _preferredPresentMode;
 
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -361,21 +485,25 @@ Instance InstanceBuilder::Build(ARENA arena, Window& window)
     createInfo.enabledExtensionCount = extensions.length();
     createInfo.ppEnabledExtensionNames = extensions.ptr();
 
-    if (vkCreateInstance(&createInfo, nullptr, &instance._value) != VK_SUCCESS)
+    if (vkCreateInstance(&createInfo, nullptr, &_instance._value) != VK_SUCCESS)
         throw std::runtime_error("Failed to create Vulkan instance!");
 
-    if (glfwCreateWindowSurface(instance._value, window.Ptr(), nullptr, &instance._surface) != VK_SUCCESS)
+    if (glfwCreateWindowSurface(_instance._value, window.Ptr(), nullptr, &_instance._surface) != VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface!");
 
-    SetPhysicalDevice(instance);
-    SetLogicalDevice(instance);
-    auto result = CreateDebugUtilsMessengerEXT(instance);
+    SetPhysicalDevice();
+    SetLogicalDevice();
+    auto result = CreateDebugUtilsMessengerEXT();
     if(result != VK_SUCCESS)
         throw std::runtime_error("Failed to create Debug Messenger!");
+
+    CreateDefaultDescriptors();
+    CreateDefaultPipelineLayout();
+    CreateDefaultPipeline();
     
-    SetCommandPool(instance);
-    instance.RecreateSwapChain(window);
-    return instance;
+    SetCommandPool();
+    _instance.RecreateSwapChain(window);
+    return _instance;
 }
 
 InstanceBuilder& InstanceBuilder::SetName(const char* name)
@@ -402,21 +530,33 @@ InstanceBuilder& InstanceBuilder::SetPreferredPresentMode(PresentMode mode)
     return *this;
 }
 
-mem::Arr<VkPhysicalDevice> InstanceBuilder::GetPhysicalDevices(Instance& instance)
+InstanceBuilder& InstanceBuilder::SetDefaultVertPath(const char* path)
+{
+    _defaultVertPath = path;
+    return *this;
+}
+
+InstanceBuilder& InstanceBuilder::SetDefaultFragPath(const char* path)
+{
+    _defaultFragPath = path;
+    return *this;
+}
+
+mem::Arr<VkPhysicalDevice> InstanceBuilder::GetPhysicalDevices()
 {
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance._value, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(_instance._value, &deviceCount, nullptr);
 
     if (deviceCount == 0) {
         throw std::runtime_error("No Vulkan GPUs found!");
     }
 
     auto arr = mem::Arr<VkPhysicalDevice>(TEMP, deviceCount);
-    vkEnumeratePhysicalDevices(instance._value, &deviceCount, arr.ptr());
+    vkEnumeratePhysicalDevices(_instance._value, &deviceCount, arr.ptr());
     return arr;
 }
 
-void InstanceBuilder::SetPhysicalDevice(Instance& instance)
+void InstanceBuilder::SetPhysicalDevice()
 {
     struct Rateable {
         VkPhysicalDevice device;
@@ -424,7 +564,7 @@ void InstanceBuilder::SetPhysicalDevice(Instance& instance)
     };
 
     auto _ = mem::scope(TEMP);
-    auto devices = GetPhysicalDevices(instance);
+    auto devices = GetPhysicalDevices();
     auto requiredExtensions = mem::Arr<const char*>(TEMP, 1);
     requiredExtensions[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
@@ -500,14 +640,14 @@ void InstanceBuilder::SetPhysicalDevice(Instance& instance)
     rateables.sort([](Rateable& a, Rateable& b) {
         return a.rating > b.rating;
     });
-    instance._physicalDevice = rateables[0].device;
+    _instance._physicalDevice = rateables[0].device;
 }
 
-void InstanceBuilder::SetLogicalDevice(Instance& instance)
+void InstanceBuilder::SetLogicalDevice()
 {
     // Create queues.
     float queuePriority = 1;
-    auto queueFamily = instance.queueFamily = GetQueueFamily(instance);
+    auto queueFamily = _instance.queueFamily = GetQueueFamily();
 
     // Very hacky but it's whatever.
     auto familyVec = mem::Vec<uint32_t>(TEMP, 2);
@@ -533,31 +673,31 @@ void InstanceBuilder::SetLogicalDevice(Instance& instance)
     createInfo.enabledExtensionCount = 1;
     createInfo.ppEnabledExtensionNames = deviceExtensions;
 
-    if (vkCreateDevice(instance._physicalDevice, &createInfo, nullptr, &instance._device) != VK_SUCCESS) {
+    if (vkCreateDevice(_instance._physicalDevice, &createInfo, nullptr, &_instance._device) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create logical device!");
     }
 
-    vkGetDeviceQueue(instance._device, queueFamily.graphics, 0, &instance._graphicsQueue);
+    vkGetDeviceQueue(_instance._device, queueFamily.graphics, 0, &_instance._graphicsQueue);
 
     if (queueFamily.graphics != queueFamily.present)
-        vkGetDeviceQueue(instance._device, queueFamily.present, 0, &instance._presentQueue);
+        vkGetDeviceQueue(_instance._device, queueFamily.present, 0, &_instance._presentQueue);
     else
-        instance._presentQueue = instance._graphicsQueue;
+        _instance._presentQueue = _instance._graphicsQueue;
 }
 
-QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
+QueueFamily InstanceBuilder::GetQueueFamily()
 {
     QueueFamily family;
 
     uint32_t familyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(instance._physicalDevice, &familyCount, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(_instance._physicalDevice, &familyCount, nullptr);
 
     auto scope = mem::scope(TEMP);
     auto arr = mem::Arr<VkQueueFamilyProperties>(TEMP, familyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(instance._physicalDevice, &familyCount, arr.ptr());
+    vkGetPhysicalDeviceQueueFamilyProperties(_instance._physicalDevice, &familyCount, arr.ptr());
 
     uint32_t i = 0;
-    arr.iterb([&family, &i, &instance](VkQueueFamilyProperties& current, auto) {
+    arr.iterb([&family, &i, this](VkQueueFamilyProperties& current, auto) {
         if (current.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             family.graphics = i;
         }
@@ -571,7 +711,7 @@ QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
         }
 
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(instance._physicalDevice, i, instance._surface, &presentSupport);
+        vkGetPhysicalDeviceSurfaceSupportKHR(_instance._physicalDevice, i, _instance._surface, &presentSupport);
         if (presentSupport) {
             family.present = i;
         }
@@ -587,7 +727,12 @@ QueueFamily InstanceBuilder::GetQueueFamily(Instance& instance)
 
 void Instance::OnScopeClear()
 {
+    vkDeviceWaitIdle(_device);
+
     DestroySwapChain();
+
+    vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
+    vkDestroyDescriptorSetLayout(_device, _descriptorSetLayout, nullptr);
 
     vkDestroyCommandPool(_device, _cmdComputePool, nullptr);
     vkDestroyCommandPool(_device, _cmdTransferPool, nullptr);
@@ -601,7 +746,6 @@ void Instance::OnScopeClear()
         DestroyDebugUtilsMessengerEXT(_value, _debugMessenger, nullptr);
     }
 
-    vkDeviceWaitIdle(_device);
     vkDestroyDevice(_device, nullptr);
     vkDestroySurfaceKHR(_value, _surface, nullptr);
     vkDestroyInstance(_value, nullptr);

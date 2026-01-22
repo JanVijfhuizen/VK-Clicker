@@ -23,6 +23,16 @@ struct QueueFamily final {
 	bool Complete();
 };
 
+struct DefVertex final
+{
+	glm::vec2 pos{};
+};
+
+struct DefPushConstant final
+{
+	glm::mat4x4 transform;
+};
+
 struct Instance final : public mem::IScoped
 {
 	friend struct InstanceBuilder;
@@ -49,6 +59,10 @@ private:
 	VkCommandPool _cmdPresentPool;
 	VkCommandPool _cmdTransferPool;
 	VkCommandPool _cmdComputePool;
+
+	// Default render pipeline.
+	VkDescriptorSetLayout _descriptorSetLayout;
+	VkPipelineLayout _pipelineLayout;
 
 	ARENA _arena;
 	mem::Arr<VkImage> _images;
@@ -80,6 +94,8 @@ struct InstanceBuilder final
 	InstanceBuilder& AddGLFWSupport();
 	InstanceBuilder& SetValidationLayers(mem::Arr<const char*> layers);
 	InstanceBuilder& SetPreferredPresentMode(PresentMode mode);
+	InstanceBuilder& SetDefaultVertPath(const char* path);
+	InstanceBuilder& SetDefaultFragPath(const char* path);
 
 private:
 	Instance _instance{};
@@ -88,12 +104,17 @@ private:
 	uint32_t _windowingExtensionsCount;
 	mem::Arr<const char*> _validationLayers;
 	PresentMode _preferredPresentMode = PresentMode::immediate;
+	const char* _defaultVertPath = "vert.spv";
+	const char* _defaultFragPath = "frag.spv";
 
-	mem::Arr<VkPhysicalDevice> GetPhysicalDevices(Instance& instance);
-	void SetPhysicalDevice(Instance& instance);
-	void SetLogicalDevice(Instance& instance);
-	QueueFamily GetQueueFamily(Instance& instance);
-	VkResult CreateDebugUtilsMessengerEXT(Instance& instance);
-	void SetCommandPool(Instance& instance);
+	mem::Arr<VkPhysicalDevice> GetPhysicalDevices();
+	void SetPhysicalDevice();
+	void SetLogicalDevice();
+	QueueFamily GetQueueFamily();
+	VkResult CreateDebugUtilsMessengerEXT();
+	void SetCommandPool();
+	void CreateDefaultDescriptors();
+	void CreateDefaultPipelineLayout();
+	void CreateDefaultPipeline();
 };
 

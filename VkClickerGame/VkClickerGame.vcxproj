@@ -139,6 +139,7 @@
   <ItemGroup>
     <ClCompile Include="Arena.cpp" />
     <ClCompile Include="Arr.cpp" />
+    <ClCompile Include="FileLoader.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyPair.cpp" />
     <ClCompile Include="Link.cpp" />
@@ -152,6 +153,7 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="Queue.cpp" />
+    <ClCompile Include="ShaderLoader.cpp" />
     <ClCompile Include="Str.cpp" />
     <ClCompile Include="Vec.cpp" />
     <ClCompile Include="VkClickerGame.cpp" />
@@ -160,6 +162,7 @@
   <ItemGroup>
     <ClInclude Include="Arena.h" />
     <ClInclude Include="Arr.h" />
+    <ClInclude Include="FileLoader.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyPair.h" />
     <ClInclude Include="Link.h" />
@@ -168,9 +171,15 @@
     <ClInclude Include="mem.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Queue.h" />
+    <ClInclude Include="ShaderLoader.h" />
     <ClInclude Include="Str.h" />
     <ClInclude Include="Vec.h" />
     <ClInclude Include="Window.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="main.frag" />
+    <None Include="main.vert" />
+    <None Include="compile.bat" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
