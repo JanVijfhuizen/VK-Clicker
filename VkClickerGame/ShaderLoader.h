@@ -1,4 +1,8 @@
 #pragma once
 
-VkShaderModule LoadShader(VkDevice device, const char* path);
+namespace gr
+{
+	VkShaderModule LoadShader(VkDevice device, const char* path);
+}
+
 

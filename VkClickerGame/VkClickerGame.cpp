@@ -8,12 +8,12 @@ int main()
 
     auto scope = mem::manualScope(PERS);
 
-    auto windowBuilder = WindowBuilder();
+    auto windowBuilder = gr::WindowBuilder();
     auto window = windowBuilder.SetName("My Engine").SetResolution({800, 600}).Build();
     scope.bind(window);
 
-    auto instanceBuilder = InstanceBuilder();
-    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().SetPreferredPresentMode(PresentMode::mailbox).Build(PERS, window);
+    auto instanceBuilder = gr::InstanceBuilder();
+    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().SetPreferredPresentMode(gr::PresentMode::mailbox).Build(PERS, window);
     scope.bind(instance);
 
     while (window.Update()) {
