@@ -67,6 +67,7 @@ private:
 
 	// Default render pipeline.
 	VkDescriptorSetLayout _descriptorSetLayout;
+	VkDescriptorPool _descriptorPool;
 	VkPipelineLayout _pipelineLayout;
 	const char* _defaultVertPath;
 	const char* _defaultFragPath;
@@ -76,6 +77,7 @@ private:
 	mem::Arr<VkImageView> _views;
 	mem::Arr<VkFramebuffer> _frameBuffers;
 	mem::Arr<VkCommandBuffer> _cmdBuffers;
+	mem::Arr<VkDescriptorSet> _descriptorSets;
 	VkRenderPass _renderPass;
 	VkExtent2D _extent;
 
@@ -94,6 +96,7 @@ private:
 	void CreateFrameBuffers(VkSwapchainKHR oldSwapChain);
 	void DestroySwapChain();
 	void CreateDefaultPipeline();
+	void CreateDescriptorPool();
 };
 
 struct InstanceBuilder final
@@ -125,5 +128,6 @@ private:
 	void SetCommandPool();
 	void CreateDefaultDescriptors();
 	void CreateDefaultPipelineLayout();
+	void CreateTriangle();
 };
 

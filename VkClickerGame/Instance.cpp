@@ -68,6 +68,8 @@ void InstanceBuilder::SetCommandPool()
 
 void Instance::RecreateSwapChain(Window& window)
 {
+    vkDeviceWaitIdle(_device);
+
     _resolution = window.GetResolution();
 
     VkSwapchainKHR oldSwapChain = _swapChain;
@@ -135,8 +137,14 @@ void Instance::RecreateSwapChain(Window& window)
     if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to create Swap Chain!");
 
+    CreateImages(format, oldSwapChain);
+
     if (!oldSwapChain)
+    {
         _cmdBuffers = mem::Arr<VkCommandBuffer>(_arena, _images.length());
+        _descriptorSets = mem::Arr<VkDescriptorSet>(_arena, _images.length());
+    }
+
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = _cmdGraphicsPool;
@@ -144,10 +152,10 @@ void Instance::RecreateSwapChain(Window& window)
     allocInfo.commandBufferCount = _cmdBuffers.length();
     vkAllocateCommandBuffers(_device, &allocInfo, _cmdBuffers.ptr());
 
-    CreateImages(format, oldSwapChain);
     CreateRenderPass(format);
     CreateFrameBuffers(oldSwapChain);
     CreateDefaultPipeline();
+    CreateDescriptorPool();
 }
 
 Instance::SwapChainSupportDetails Instance::TEMP_GetSwapChainSupportDetails()
@@ -329,7 +337,8 @@ void Instance::CreateFrameBuffers(VkSwapchainKHR oldSwapChain)
 
 void Instance::DestroySwapChain()
 {
-    vkFreeCommandBuffers(_device, _cmdGraphicsPool, 4, _cmdBuffers.ptr());
+    vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
+    vkFreeCommandBuffers(_device, _cmdGraphicsPool, _cmdBuffers.length(), _cmdBuffers.ptr());
     vkDestroyPipeline(_device, _pipeline, nullptr);
     for (uint32_t i = 0; i < _frameBuffers.length(); i++)
         vkDestroyFramebuffer(_device, _frameBuffers[i], nullptr);
@@ -499,6 +508,30 @@ void Instance::CreateDefaultPipeline()
 
     vkDestroyShaderModule(_device, frag, nullptr);
     vkDestroyShaderModule(_device, vert, nullptr);
+}
+
+void Instance::CreateDescriptorPool()
+{
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = _images.length();
+
+    vkCreateDescriptorPool(_device, &poolInfo, nullptr, &_descriptorPool);
+
+    // Just create N sets, one for every swapchain image.
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = _descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &_descriptorSetLayout;
+
+    vkAllocateDescriptorSets(_device, &allocInfo, _descriptorSets.ptr());
 }
 
 Instance InstanceBuilder::Build(ARENA arena, Window& window)
@@ -826,7 +859,6 @@ void Instance::Update()
     rpInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
-
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
 
     vkCmdBindDescriptorSets(
@@ -834,14 +866,16 @@ void Instance::Update()
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         _pipelineLayout,
         0,
-        1, &_descriptorSet, // todo.
+        1, &_descriptorSets[imageIndex], // todo.
         0, nullptr
     );
 
+    //TODO
+    /*
     VkBuffer vertexBuffers[] = { vertexBuffer }; // todo.
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
-
+    */
     DefPushConstant pc{};
 
     vkCmdPushConstants(
@@ -890,6 +924,10 @@ void Instance::OnScopeClear()
     vkDeviceWaitIdle(_device);
 
     DestroySwapChain();
+
+    vkDestroySemaphore(_device, _imageAvailableSemaphore, nullptr);
+    vkDestroySemaphore(_device, _renderFinishedSemaphore, nullptr);
+    vkDestroyFence(_device, _inFlightFence, nullptr);
 
     vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(_device, _descriptorSetLayout, nullptr);
