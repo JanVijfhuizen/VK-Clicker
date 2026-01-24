@@ -139,6 +139,7 @@
   <ItemGroup>
     <ClCompile Include="Arena.cpp" />
     <ClCompile Include="Arr.cpp" />
+    <ClCompile Include="Core.cpp" />
     <ClCompile Include="FileLoader.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyPair.cpp" />
@@ -156,13 +157,17 @@
     <ClCompile Include="QueueFamily.cpp" />
     <ClCompile Include="ShaderLoader.cpp" />
     <ClCompile Include="Str.cpp" />
+    <ClCompile Include="SwapChain.cpp" />
+    <ClCompile Include="SwapChainSupportDetails.cpp" />
     <ClCompile Include="Vec.cpp" />
+    <ClCompile Include="VkCheck.cpp" />
     <ClCompile Include="VkClickerGame.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Arena.h" />
     <ClInclude Include="Arr.h" />
+    <ClInclude Include="Core.h" />
     <ClInclude Include="FileLoader.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyPair.h" />
@@ -177,8 +182,11 @@
     <ClInclude Include="QueueFamily.h" />
     <ClInclude Include="ShaderLoader.h" />
     <ClInclude Include="Str.h" />
+    <ClInclude Include="SwapChain.h" />
+    <ClInclude Include="SwapChainSupportDetails.h" />
     <ClInclude Include="Vec.h" />
     <ClInclude Include="Vertex.h" />
+    <ClInclude Include="VkCheck.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>

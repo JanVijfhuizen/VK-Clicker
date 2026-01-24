@@ -14,6 +14,18 @@ namespace gr {
 		QueueFamily queueFamily;
 		glm::ivec2 resolution;
 		PresentMode preferredPresentMode;
+
+		union
+		{
+			VkQueue queues[4]{};
+			struct {
+				VkQueue graphicsQueue;
+				VkQueue presentQueue;
+				VkQueue computeQueue;
+				VkQueue transferQueue;
+			};
+		};
+		
 	};
 
 	struct CoreBuilder final {
@@ -35,7 +47,9 @@ namespace gr {
 		void BuildInstance(ARENA arena, Window& window);
 		void BuildSurface(Window& window);
 		void BuildPhysicalDevice();
+		void BuildLogicalDevice();
 
 		mem::Arr<VkPhysicalDevice> GetPhysicalDevices();
+		QueueFamily GetQueueFamily();
 	};
 }

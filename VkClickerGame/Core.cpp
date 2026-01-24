@@ -2,6 +2,7 @@
 #include "Core.h"
 #include "VkCheck.h"
 #include "Vec.h"
+#include "Set.h"
 
 namespace gr
 {
@@ -162,6 +163,58 @@ namespace gr
         _core.physicalDevice = rateables[0].device;
 	}
 
+    void CoreBuilder::BuildLogicalDevice()
+    {
+        // Create queues.
+        float queuePriority = 1;
+        auto queueFamily = _core.queueFamily = GetQueueFamily();
+
+        auto _ = mem::scope(TEMP);
+        auto set = mem::Set<uint32_t>(TEMP, 4);
+        set.insert(queueFamily.graphics, queueFamily.graphics);
+        set.insert(queueFamily.present, queueFamily.present);
+        set.insert(queueFamily.transfer, queueFamily.transfer);
+        set.insert(queueFamily.compute, queueFamily.compute);
+
+        auto familyVec = set.vec();
+        auto queueCreateInfos = mem::Arr<VkDeviceQueueCreateInfo>(TEMP, familyVec.count());
+
+        familyVec.arr().iter([&queueCreateInfos, &queueFamily, &queuePriority](auto& family, auto i) {
+            auto& info = queueCreateInfos[i] = {};
+            info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            info.queueFamilyIndex = family;
+            info.queueCount = 1;
+            info.pQueuePriorities = &queuePriority;
+            });
+
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.queueCreateInfoCount = queueCreateInfos.length();
+        createInfo.pQueueCreateInfos = queueCreateInfos.ptr();
+
+        const char* deviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+        createInfo.enabledExtensionCount = 1;
+        createInfo.ppEnabledExtensionNames = deviceExtensions;
+
+        VkCheck(vkCreateDevice(_core.physicalDevice, &createInfo, nullptr, &_core.device));
+
+        auto closed = mem::Set<VkQueue>(TEMP, 4);
+
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            VkQueue queue;
+            auto id = queueFamily.queues[i];
+            if (!closed.contains(id, queue))
+            {
+                queue = _core.queues[i];
+                vkGetDeviceQueue(_core.device, queueFamily.present, 0, &queue);
+                closed.insert(queue, id);
+            }
+            else
+                _core.queues[i] = queue;
+        }
+    }
+
     mem::Arr<VkPhysicalDevice> CoreBuilder::GetPhysicalDevices()
     {
         uint32_t deviceCount = 0;
@@ -174,5 +227,44 @@ namespace gr
         auto arr = mem::Arr<VkPhysicalDevice>(TEMP, deviceCount);
         vkEnumeratePhysicalDevices(_core.instance, &deviceCount, arr.ptr());
         return arr;
+    }
+    QueueFamily CoreBuilder::GetQueueFamily()
+    {
+        QueueFamily family;
+
+        uint32_t familyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(_core.physicalDevice, &familyCount, nullptr);
+
+        auto scope = mem::scope(TEMP);
+        auto arr = mem::Arr<VkQueueFamilyProperties>(TEMP, familyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(_core.physicalDevice, &familyCount, arr.ptr());
+
+        uint32_t i = 0;
+        arr.iterb([&family, &i, this](VkQueueFamilyProperties& current, auto) {
+            if (current.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                family.graphics = i;
+            }
+
+            if (current.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                family.transfer = i;
+            }
+
+            if (current.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                family.compute = i;
+            }
+
+            VkBool32 presentSupport = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(_instance._physicalDevice, i, _instance._surface, &presentSupport);
+            if (presentSupport) {
+                family.present = i;
+            }
+
+            if (family.Complete())
+                return false;
+            i++;
+            return true;
+            });
+
+        return family;
     }
 }
