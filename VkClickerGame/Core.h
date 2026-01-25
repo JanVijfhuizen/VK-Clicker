@@ -5,7 +5,7 @@
 #include "PresentMode.h"
 
 namespace gr {
-	struct Core final {
+	struct Core final : public mem::IScoped {
 		VkInstance instance;
 		VkSurfaceKHR surface;
 		VkPhysicalDevice physicalDevice;
@@ -14,18 +14,9 @@ namespace gr {
 		QueueFamily queueFamily;
 		glm::ivec2 resolution;
 		PresentMode preferredPresentMode;
+		VkQueue queues[(int)QueueFamily::Type::length];
 
-		union
-		{
-			VkQueue queues[4]{};
-			struct {
-				VkQueue graphicsQueue;
-				VkQueue presentQueue;
-				VkQueue computeQueue;
-				VkQueue transferQueue;
-			};
-		};
-		
+		virtual void OnScopeClear() override;
 	};
 
 	struct CoreBuilder final {
@@ -35,6 +26,7 @@ namespace gr {
 		CoreBuilder& SetValidationLayers(const mem::Arr<const char*>& layers);
 		CoreBuilder& SetPreferredPresentMode(PresentMode mode);
 		CoreBuilder& SetVkVersion(uint32_t version);
+		CoreBuilder& SetConcurrentPoolCount(uint32_t count);
 
 	private:
 		Core _core{};
@@ -43,11 +35,13 @@ namespace gr {
 		uint32_t _glfwExtensionsCount;
 		PresentMode _preferredPresentMode = PresentMode::immediate;
 		mem::Arr<const char*> _validationLayers;
+		uint32_t _concurrentPoolCount = 1;
 
 		void BuildInstance(ARENA arena, Window& window);
 		void BuildSurface(Window& window);
 		void BuildPhysicalDevice();
 		void BuildLogicalDevice();
+		void BuildDebugUtilsMessengerEXT();
 
 		mem::Arr<VkPhysicalDevice> GetPhysicalDevices();
 		QueueFamily GetQueueFamily();

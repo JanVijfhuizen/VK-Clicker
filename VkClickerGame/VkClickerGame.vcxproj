@@ -180,6 +180,7 @@
     <ClInclude Include="PushConstant.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="QueueFamily.h" />
+    <ClInclude Include="Set.h" />
     <ClInclude Include="ShaderLoader.h" />
     <ClInclude Include="Str.h" />
     <ClInclude Include="SwapChain.h" />

@@ -18,6 +18,7 @@ namespace gr
 		BuildSurface(window);
         BuildPhysicalDevice();
         BuildLogicalDevice();
+        BuildDebugUtilsMessengerEXT();
 
 		return _core;
 	}
@@ -40,6 +41,10 @@ namespace gr
 	{
 		_version = version;
 	}
+    CoreBuilder& CoreBuilder::SetConcurrentPoolCount(uint32_t count)
+    {
+        _concurrentPoolCount = count;
+    }
 	void CoreBuilder::BuildInstance(ARENA arena, Window& window)
 	{
 		auto name = window.GetName();
@@ -170,11 +175,13 @@ namespace gr
         auto queueFamily = _core.queueFamily = GetQueueFamily();
 
         auto _ = mem::scope(TEMP);
-        auto set = mem::Set<uint32_t>(TEMP, 4);
-        set.insert(queueFamily.graphics, queueFamily.graphics);
-        set.insert(queueFamily.present, queueFamily.present);
-        set.insert(queueFamily.transfer, queueFamily.transfer);
-        set.insert(queueFamily.compute, queueFamily.compute);
+        const uint32_t l = (int)QueueFamily::Type::length;
+        auto set = mem::Set<uint32_t>(TEMP, l);
+        for (uint32_t i = 0; i < l; i++)
+        {
+            auto id = queueFamily.queues[i];
+            set.insert(id, id);
+        }
 
         auto familyVec = set.vec();
         auto queueCreateInfos = mem::Arr<VkDeviceQueueCreateInfo>(TEMP, familyVec.count());
@@ -207,12 +214,43 @@ namespace gr
             if (!closed.contains(id, queue))
             {
                 queue = _core.queues[i];
-                vkGetDeviceQueue(_core.device, queueFamily.present, 0, &queue);
+                vkGetDeviceQueue(_core.device, id, 0, &queue);
                 closed.insert(queue, id);
             }
             else
                 _core.queues[i] = queue;
         }
+    }
+
+    static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+        VkDebugUtilsMessageTypeFlagsEXT type,
+        const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+        void* userData)
+    {
+        std::cerr << "validation: " << callbackData->pMessage << std::endl;
+        return VK_FALSE;
+    }
+
+    void CoreBuilder::BuildDebugUtilsMessengerEXT()
+    {
+        VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        createInfo.messageSeverity =
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        createInfo.messageType =
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        createInfo.pfnUserCallback = DebugCallback;
+        createInfo.pUserData = nullptr; // optional
+        auto func = (PFN_vkCreateDebugUtilsMessengerEXT)
+            vkGetInstanceProcAddr(_core.instance, "vkCreateDebugUtilsMessengerEXT");
+        auto result = func ? func(_core.instance, &createInfo, nullptr, &_core.debugMessenger)
+            : VK_ERROR_EXTENSION_NOT_PRESENT;
+        VkCheck(result);
     }
 
     mem::Arr<VkPhysicalDevice> CoreBuilder::GetPhysicalDevices()
@@ -230,7 +268,9 @@ namespace gr
     }
     QueueFamily CoreBuilder::GetQueueFamily()
     {
-        QueueFamily family;
+        QueueFamily family{};
+        for (uint32_t i = 0; i < (int)QueueFamily::Type::length; i++)
+            family.queues[i] = -1;
 
         uint32_t familyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(_core.physicalDevice, &familyCount, nullptr);
@@ -266,5 +306,18 @@ namespace gr
             });
 
         return family;
+    }
+    void Core::OnScopeClear()
+    {
+        vkDeviceWaitIdle(device);
+
+        auto DestroyDebugUtilsMessengerEXT =
+            (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+        if (debugMessenger)
+            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+
+        vkDestroyDevice(device, nullptr);
+        vkDestroySurfaceKHR(instance, surface, nullptr);
+        vkDestroyInstance(instance, nullptr);
     }
 }

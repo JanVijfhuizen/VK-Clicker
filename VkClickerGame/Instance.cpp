@@ -161,7 +161,7 @@ namespace gr {
         CreateDescriptorPool();
     }
 
-    Instance::SwapChainSupportDetails Instance::TEMP_GetSwapChainSupportDetails()
+    SwapChainSupportDetails TEMP_GetSwapChainSupportDetails()
     {
         SwapChainSupportDetails details{};
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(

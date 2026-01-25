@@ -161,6 +161,9 @@
     <ClInclude Include="VkCheck.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="Set.h">
+      <Filter>Header Files\Mem</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="main.vert">
