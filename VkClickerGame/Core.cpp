@@ -41,6 +41,11 @@ namespace gr
         _concurrentPoolCount = count;
         return *this;
     }
+    CoreBuilder& CoreBuilder::EnableValidationLayers(bool on)
+    {
+        _enableValidationLayers = on;
+        return *this;
+    }
 	void CoreBuilder::BuildInstance(ARENA arena, Window& window)
 	{
 		auto name = window.GetName();
@@ -62,7 +67,7 @@ namespace gr
 		auto layers = mem::Arr<const char*>(TEMP, _validationLayers.length() + 1);
 		layers[0] = "VK_LAYER_KHRONOS_validation";
 		layers.put(1, _validationLayers);
-		createInfo.enabledLayerCount = layers.length();
+		createInfo.enabledLayerCount = _enableValidationLayers ? layers.length() : 0;
 		createInfo.ppEnabledLayerNames = layers.ptr();
 
 		auto extensions = mem::Arr<const char*>(TEMP, _glfwExtensionsCount + 1);

@@ -27,6 +27,7 @@ namespace gr {
 		CoreBuilder& SetValidationLayers(const mem::Arr<const char*>& layers);
 		CoreBuilder& SetVkVersion(uint32_t version);
 		CoreBuilder& SetConcurrentPoolCount(uint32_t count);
+		CoreBuilder& EnableValidationLayers(bool on);
 
 	private:
 		Core _core{};
@@ -36,6 +37,7 @@ namespace gr {
 		PresentMode _preferredPresentMode = PresentMode::immediate;
 		mem::Arr<const char*> _validationLayers;
 		uint32_t _concurrentPoolCount = 1;
+		bool _enableValidationLayers = true;
 
 		void BuildInstance(ARENA arena, Window& window);
 		void BuildSurface(Window& window);

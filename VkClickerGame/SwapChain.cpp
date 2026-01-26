@@ -49,7 +49,7 @@ namespace gr {
 	}
 	uint32_t SwapChain::GetIndex()
 	{
-		return _index;
+		return _imageIndex;
 	}
 	void SwapChain::Create(ARENA arena, Window& window)
 	{
@@ -310,7 +310,7 @@ namespace gr {
 		// Rather than keeping tracks of command buffers, just reset the pool every time.
 		auto& subPools = _pools[_imageIndex];
 		for (uint32_t i = 0; i < (int)QUEUE_LEN - 1; i++)
-			vkResetCommandPool(_core->device, subPools[i], 0);
+			vkResetCommandPool(_core->device, subPools[i], VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 		
 		AllocCommandBuffers(QueueType::graphics, 1, &_cmd);
 

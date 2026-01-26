@@ -118,7 +118,7 @@ namespace gr {
         pipelineLayoutInfo.setLayoutCount = layouts.length();
         pipelineLayoutInfo.pSetLayouts = layouts.ptr();
         pipelineLayoutInfo.pushConstantRangeCount = _pushConstantSize > 0;
-        pipelineLayoutInfo.pPushConstantRanges = &pushConstantSize;
+        pipelineLayoutInfo.pPushConstantRanges = _pushConstantSize > 0 ? &pushConstantSize : nullptr;
 
         VkPipelineLayout layout;
         vkCreatePipelineLayout(core.device, &pipelineLayoutInfo, nullptr, &layout);
