@@ -12,6 +12,7 @@ namespace gr
 		void Frame(Window& window);
 
 		void AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers);
+		VkRenderPass GetRenderPass();
 
 	private:
 		Core* _core;

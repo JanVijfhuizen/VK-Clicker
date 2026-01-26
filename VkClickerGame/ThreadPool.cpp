@@ -3,6 +3,7 @@
 #include "Queue.h"
 #include <thread>
 #include <mutex>
+#include "Vec.h"
 
 namespace mem 
 {

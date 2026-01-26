@@ -30,6 +30,10 @@ namespace gr {
 		allocInfo.commandBufferCount = amount;
 		vkAllocateCommandBuffers(_core->device, &allocInfo, cmdBuffers);
 	}
+	VkRenderPass SwapChain::GetRenderPass()
+	{
+		return _renderPass;
+	}
 	void SwapChain::Create(ARENA arena, Window& window)
 	{
 		auto _ = mem::scope(TEMP);
