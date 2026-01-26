@@ -16,6 +16,8 @@ namespace gr {
 		VkQueue queues[QUEUE_LEN];
 
 		virtual void OnScopeClear() override;
+
+		uint32_t FindMemoryType(uint32_t filter, VkMemoryPropertyFlags properties) const;
 	};
 
 	struct CoreBuilder final {

@@ -39,6 +39,18 @@ namespace gr {
 	{
 		return _renderPass;
 	}
+	uint32_t SwapChain::GetFrameCount()
+	{
+		return _images.length();
+	}
+	VkCommandBuffer SwapChain::GetCmd()
+	{
+		return _cmd;
+	}
+	uint32_t SwapChain::GetIndex()
+	{
+		return _index;
+	}
 	void SwapChain::Create(ARENA arena, Window& window)
 	{
 		auto _ = mem::scope(TEMP);

@@ -21,6 +21,9 @@ namespace gr
 		void BindResource(SwapChainResource* resource);
 		void AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers);
 		VkRenderPass GetRenderPass();
+		uint32_t GetFrameCount();
+		VkCommandBuffer GetCmd();
+		uint32_t GetIndex();
 
 	private:
 		ARENA _arena;

@@ -30,7 +30,7 @@ namespace mem
 	private:
 		uint64_t _scope;
 		ARENA _arena;
-		bool _manual;
+		bool _manual = true;
 		IScoped* _scoped = nullptr;
 	};
 

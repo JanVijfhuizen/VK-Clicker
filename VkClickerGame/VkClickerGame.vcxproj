@@ -139,6 +139,7 @@
   <ItemGroup>
     <ClCompile Include="Arena.cpp" />
     <ClCompile Include="Arr.cpp" />
+    <ClCompile Include="BufferBuilder.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="DescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="FileLoader.cpp" />
@@ -170,6 +171,8 @@
   <ItemGroup>
     <ClInclude Include="Arena.h" />
     <ClInclude Include="Arr.h" />
+    <ClInclude Include="BufferBuilder.h" />
+    <ClInclude Include="ColorUBO.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="DescriptorSetLayoutBuilder.h" />
     <ClInclude Include="FileLoader.h" />

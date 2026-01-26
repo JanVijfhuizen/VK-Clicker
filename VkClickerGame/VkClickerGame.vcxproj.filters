@@ -99,6 +99,9 @@
     <ClCompile Include="DescriptorSetLayoutBuilder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BufferBuilder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Window.h">
@@ -173,14 +176,20 @@
     <ClInclude Include="RenderPass.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadPool.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="PipelineBuilder.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="DescriptorSetLayoutBuilder.h">
       <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="ColorUBO.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="BufferBuilder.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadPool.h">
+      <Filter>Header Files\Mem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
