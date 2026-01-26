@@ -3,6 +3,7 @@
 #include "SwapChainSupportDetails.h"
 #include "VkCheck.h"
 #include "Math.h"
+#include "RenderPass.h"
 
 namespace gr {
 	void SwapChain::OnScopeClear()
@@ -82,10 +83,32 @@ namespace gr {
 		VkCheck(vkCreateSwapchainKHR(_core->device, &createInfo, nullptr, &_swapChain));
 		SetImages(arena, format, oldSwapChain);
 		SetCommandPools(arena);
+
+		auto renderPassBuilder = RenderPassBuilder();
+		_renderPass = renderPassBuilder.Build(*_core, format.format);
+
+		SetFrameBuffers(arena, oldSwapChain);
 	}
 	void SwapChain::Clear()
 	{
 		vkDeviceWaitIdle(_core->device);
+
+		for (uint32_t i = 0; i < _frameBuffers.length(); i++)
+			vkDestroyFramebuffer(_core->device, _frameBuffers[i], nullptr);
+
+		vkDestroyRenderPass(_core->device, _renderPass, nullptr);
+
+		for (uint32_t i = 0; i < _pools.length(); i++)
+		{
+			auto& pool = _pools[i];
+			for (uint32_t j = 0; j < _images.length(); j++)
+				vkDestroyCommandPool(_core->device, pool[j], nullptr);
+		}
+
+		for (uint32_t i = 0; i < _images.length(); i++)
+			vkDestroyImageView(_core->device, _views[i], nullptr);
+
+		vkDestroySwapchainKHR(_core->device, _swapChain, nullptr);
 	}
 	VkSurfaceFormatKHR SwapChain::ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats)
 	{
@@ -150,10 +173,9 @@ namespace gr {
 	}
 	void SwapChain::SetCommandPools(ARENA arena)
 	{
-		// Only create this once.
 		const uint32_t l = _images.length();
-		if (l != 0)
-			return;
+		if (l == 0)
+			_pools = mem::Arr<mem::Arr<VkCommandPool>>(arena, l);
 
 		// Create command pool
 		VkCommandPoolCreateInfo poolInfo{};
@@ -174,6 +196,26 @@ namespace gr {
 			}
 		}
 	}
+	void SwapChain::SetFrameBuffers(ARENA arena, VkSwapchainKHR oldSwapChain)
+	{
+		if (!oldSwapChain)
+			_frameBuffers = mem::Arr<VkFramebuffer>(arena, _images.length());
+
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = _renderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.width = _extent.width;
+		framebufferInfo.height = _extent.height;
+		framebufferInfo.layers = 1;
+
+		for (uint32_t i = 0; i < _images.length(); i++)
+		{
+			VkImageView attachments[] = { _views[i] };
+			framebufferInfo.pAttachments = attachments;
+			VkCheck(vkCreateFramebuffer(_core->device, &framebufferInfo, nullptr, &_frameBuffers[i]));
+		}
+	}
 	VkPresentModeKHR SwapChain::ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes)
 	{
 		VkPresentModeKHR mode{};
@@ -191,10 +233,13 @@ namespace gr {
 			preferred = VK_PRESENT_MODE_FIFO_KHR;
 			break;
 		}
+		return mode;
 	}
 	SwapChain SwapChainBuilder::Build(ARENA arena, Core& core, Window& window)
 	{
-		
+		_swapChain._core = &core;
+		_swapChain.Create(arena, window);
+		return _swapChain;
 	}
 	SwapChainBuilder& SwapChainBuilder::SetPreferredPresentMode(PresentMode mode)
 	{

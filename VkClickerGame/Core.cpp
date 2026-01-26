@@ -34,10 +34,12 @@ namespace gr
 	CoreBuilder& CoreBuilder::SetVkVersion(uint32_t version)
 	{
 		_version = version;
+        return *this;
 	}
     CoreBuilder& CoreBuilder::SetConcurrentPoolCount(uint32_t count)
     {
         _concurrentPoolCount = count;
+        return *this;
     }
 	void CoreBuilder::BuildInstance(ARENA arena, Window& window)
 	{
@@ -209,7 +211,7 @@ namespace gr
             {
                 queue = _core.queues[i];
                 vkGetDeviceQueue(_core.device, id, 0, &queue);
-                closed.insert(queue, id);
+                closed.insert(id, queue);
             }
             else
                 _core.queues[i] = queue;
@@ -276,21 +278,21 @@ namespace gr
         uint32_t i = 0;
         arr.iterb([&family, &i, this](VkQueueFamilyProperties& current, auto) {
             if (current.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                family.graphics = i;
+                family.queues[(int)QueueFamily::Type::graphics] = i;
             }
 
             if (current.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-                family.transfer = i;
+                family.queues[(int)QueueFamily::Type::transfer] = i;
             }
 
             if (current.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                family.compute = i;
+                family.queues[(int)QueueFamily::Type::compute] = i;
             }
 
             VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(_instance._physicalDevice, i, _instance._surface, &presentSupport);
+            vkGetPhysicalDeviceSurfaceSupportKHR(_core.physicalDevice, i, _core.surface, &presentSupport);
             if (presentSupport) {
-                family.present = i;
+                family.queues[(int)QueueFamily::Type::present] = i;
             }
 
             if (family.Complete())

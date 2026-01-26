@@ -7,7 +7,7 @@ namespace mem
 	template <typename T>
 	struct Set final {
 		Set(uint8_t arena, uint32_t length);
-		void insert(T& value, uint64_t key);
+		void insert(uint64_t key, T& value);
 		bool contains(uint64_t key, T& value);
 		Vec<T> vec();
 	private:
@@ -20,12 +20,12 @@ namespace mem
 	{
 		_set = Arr<uint32_t>(arena, length);
 		_set.set(-1);
-		_values = Arr<T>(arena, length);
+		_values = Vec<T>(arena, length);
 	}
 	template<typename T>
-	inline void Set<T>::insert(T& value, uint64_t key)
+	inline void Set<T>::insert(uint64_t key, T& value)
 	{
-		if (contains(key))
+		if (contains(key, value))
 			return;
 		_set[key] = true;
 		_values.add() = value;
@@ -38,6 +38,6 @@ namespace mem
 	template<typename T>
 	inline Vec<T> Set<T>::vec()
 	{
-		return _vec;
+		return _values;
 	}
 }

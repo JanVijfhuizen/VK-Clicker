@@ -1,13 +1,8 @@
 #pragma once
+#include "Core.h"
 
 namespace gr
 {
-	struct SwapChainSupportDetails {
-		VkSurfaceCapabilitiesKHR capabilities;
-		mem::Arr<VkSurfaceFormatKHR> formats{};
-		mem::Arr<VkPresentModeKHR> presentModes{};
-	};
-
 	struct SwapChain final : public mem::IScoped
 	{
 		friend struct SwapChainBuilder;
@@ -17,7 +12,7 @@ namespace gr
 
 	private:
 		Core* _core;
-		PresentMode _preferredPresentMode;
+		PresentMode _preferredPresentMode = PresentMode::mailbox;
 		glm::ivec2 _resolution;
 		VkExtent2D _extent;
 
@@ -27,6 +22,8 @@ namespace gr
 		mem::Arr<VkFramebuffer> _frameBuffers;
 
 		VkSwapchainKHR _swapChain = VK_NULL_HANDLE;
+		VkRenderPass _renderPass;
+
 		VkSemaphore _imageAvailableSemaphore;
 		VkSemaphore _renderFinishedSemaphore;
 		VkFence _inFlightFence;
@@ -39,6 +36,7 @@ namespace gr
 		void SetSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		void SetImages(ARENA arena, VkSurfaceFormatKHR format, VkSwapchainKHR oldSwapChain);
 		void SetCommandPools(ARENA arena);
+		void SetFrameBuffers(ARENA arena, VkSwapchainKHR oldSwapChain);
 	};
 
 	struct SwapChainBuilder final

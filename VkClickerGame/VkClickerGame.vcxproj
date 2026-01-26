@@ -141,7 +141,6 @@
     <ClCompile Include="Arr.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="FileLoader.cpp" />
-    <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyPair.cpp" />
     <ClCompile Include="Link.cpp" />
     <ClCompile Include="Map.cpp" />
@@ -155,6 +154,7 @@
     </ClCompile>
     <ClCompile Include="Queue.cpp" />
     <ClCompile Include="QueueFamily.cpp" />
+    <ClCompile Include="RenderPass.cpp" />
     <ClCompile Include="ShaderLoader.cpp" />
     <ClCompile Include="Str.cpp" />
     <ClCompile Include="SwapChain.cpp" />
@@ -169,7 +169,6 @@
     <ClInclude Include="Arr.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="FileLoader.h" />
-    <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyPair.h" />
     <ClInclude Include="Link.h" />
     <ClInclude Include="Map.h" />
@@ -180,6 +179,7 @@
     <ClInclude Include="PushConstant.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="QueueFamily.h" />
+    <ClInclude Include="RenderPass.h" />
     <ClInclude Include="Set.h" />
     <ClInclude Include="ShaderLoader.h" />
     <ClInclude Include="Str.h" />

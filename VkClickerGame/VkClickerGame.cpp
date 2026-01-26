@@ -1,6 +1,7 @@
 #include "pch.h"
-#include "Instance.h"
 #include "Window.h"
+#include "Core.h"
+#include "SwapChain.h"
 
 int main()
 {
@@ -12,9 +13,14 @@ int main()
     auto window = windowBuilder.SetName("My Engine").SetResolution({800, 600}).Build();
     scope.bind(window);
 
-    auto instanceBuilder = gr::InstanceBuilder();
-    auto instance = instanceBuilder.SetName("My Engine").AddGLFWSupport().SetPreferredPresentMode(gr::PresentMode::mailbox).Build(PERS, window);
-    scope.bind(instance);
+    auto coreBuilder = gr::CoreBuilder();
+    auto core = coreBuilder.AddGLFWSupport().Build(PERS, window);
+
+    auto swapChainBuilder = gr::SwapChainBuilder();
+    auto swapChain = swapChainBuilder.Build(PERS, core, window);
+
+    scope.bind(core);
+    scope.bind(swapChain);
 
     while (window.Update()) {
         mem::frame();
