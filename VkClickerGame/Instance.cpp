@@ -161,35 +161,6 @@ namespace gr {
         CreateDescriptorPool();
     }
 
-    SwapChainSupportDetails TEMP_GetSwapChainSupportDetails()
-    {
-        SwapChainSupportDetails details{};
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-            _physicalDevice, _surface, &details.capabilities);
-
-        uint32_t formatCount;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(
-            _physicalDevice, _surface, &formatCount, nullptr);
-
-        if (formatCount != 0) {
-            auto& arr = details.formats = mem::Arr<VkSurfaceFormatKHR>(TEMP, formatCount);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(
-                _physicalDevice, _surface, &formatCount, arr.ptr());
-        }
-
-        uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(
-            _physicalDevice, _surface, &presentModeCount, nullptr);
-
-        if (presentModeCount != 0) {
-            auto& arr = details.presentModes = mem::Arr<VkPresentModeKHR>(TEMP, presentModeCount);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(
-                _physicalDevice, _surface, &presentModeCount, arr.ptr());
-        }
-
-        return details;
-    }
-
     VkSurfaceFormatKHR Instance::ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats)
     {
         VkSurfaceFormatKHR format = formats[0];

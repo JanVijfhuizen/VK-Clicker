@@ -1,6 +1,8 @@
 #pragma once
 
 namespace gr {
+#define QUEUE_LEN (int)QueueFamily::Type::length
+
 	struct QueueFamily final {
 		enum class Type
 		{

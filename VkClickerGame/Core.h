@@ -13,8 +13,7 @@ namespace gr {
 		VkDebugUtilsMessengerEXT debugMessenger;
 		QueueFamily queueFamily;
 		glm::ivec2 resolution;
-		PresentMode preferredPresentMode;
-		VkQueue queues[(int)QueueFamily::Type::length];
+		VkQueue queues[QUEUE_LEN];
 
 		virtual void OnScopeClear() override;
 	};
@@ -24,7 +23,6 @@ namespace gr {
 
 		CoreBuilder& AddGLFWSupport();
 		CoreBuilder& SetValidationLayers(const mem::Arr<const char*>& layers);
-		CoreBuilder& SetPreferredPresentMode(PresentMode mode);
 		CoreBuilder& SetVkVersion(uint32_t version);
 		CoreBuilder& SetConcurrentPoolCount(uint32_t count);
 

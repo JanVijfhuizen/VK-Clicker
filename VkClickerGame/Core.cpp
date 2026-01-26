@@ -12,7 +12,6 @@ namespace gr
 
 		_core = {};
 		_core.resolution = window.GetResolution();
-		_core.preferredPresentMode = _preferredPresentMode;
 
 		BuildInstance(arena, window);
 		BuildSurface(window);
@@ -30,11 +29,6 @@ namespace gr
 	CoreBuilder& CoreBuilder::SetValidationLayers(const mem::Arr<const char*>& layers)
 	{
 		_validationLayers = layers;
-		return *this;
-	}
-	CoreBuilder& CoreBuilder::SetPreferredPresentMode(PresentMode mode)
-	{
-		_preferredPresentMode = mode;
 		return *this;
 	}
 	CoreBuilder& CoreBuilder::SetVkVersion(uint32_t version)
@@ -175,7 +169,7 @@ namespace gr
         auto queueFamily = _core.queueFamily = GetQueueFamily();
 
         auto _ = mem::scope(TEMP);
-        const uint32_t l = (int)QueueFamily::Type::length;
+        const uint32_t l = QUEUE_LEN;
         auto set = mem::Set<uint32_t>(TEMP, l);
         for (uint32_t i = 0; i < l; i++)
         {
@@ -269,7 +263,7 @@ namespace gr
     QueueFamily CoreBuilder::GetQueueFamily()
     {
         QueueFamily family{};
-        for (uint32_t i = 0; i < (int)QueueFamily::Type::length; i++)
+        for (uint32_t i = 0; i < QUEUE_LEN; i++)
             family.queues[i] = -1;
 
         uint32_t familyCount = 0;

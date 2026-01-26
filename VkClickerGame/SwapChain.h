@@ -13,30 +13,40 @@ namespace gr
 		friend struct SwapChainBuilder;
 
 		virtual void OnScopeClear() override;
-		void Recreate();
+		void Recreate(Window& window);
 
 	private:
+		Core* _core;
+		PresentMode _preferredPresentMode;
+		glm::ivec2 _resolution;
+		VkExtent2D _extent;
+
+		mem::Arr<mem::Arr<VkCommandPool>> _pools;
 		mem::Arr<VkImage> _images;
 		mem::Arr<VkImageView> _views;
 		mem::Arr<VkFramebuffer> _frameBuffers;
-		mem::Arr<VkCommandBuffer> _cmdBuffers;
 
 		VkSwapchainKHR _swapChain = VK_NULL_HANDLE;
 		VkSemaphore _imageAvailableSemaphore;
 		VkSemaphore _renderFinishedSemaphore;
 		VkFence _inFlightFence;
 
-		void Create();
+		void Create(ARENA arena, Window& window);
 		void Clear();
+
+		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats);
+		VkPresentModeKHR ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes);
+		void SetSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+		void SetImages(ARENA arena, VkSurfaceFormatKHR format, VkSwapchainKHR oldSwapChain);
+		void SetCommandPools(ARENA arena);
 	};
 
 	struct SwapChainBuilder final
 	{
-		SwapChain Build();
+		SwapChain Build(ARENA arena, Core& core, Window& window);
+		SwapChainBuilder& SetPreferredPresentMode(PresentMode mode);
 
 	private:
 		SwapChain _swapChain{};
 	};
-
-	SwapChainSupportDetails TEMP_GetSwapChainSupportDetails();
 }
