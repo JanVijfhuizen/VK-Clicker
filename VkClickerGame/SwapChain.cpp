@@ -8,18 +8,33 @@
 namespace gr {
 	void SwapChain::OnScopeClear()
 	{
-		Clear();
+		Clear(true);
 	}
 	void SwapChain::Recreate(Window& window)
 	{
-		_resolution = window.GetResolution();
 		if (_swapChain)
-			Clear();
+			Clear(false);
 		Create(-1, window);
+	}
+	void SwapChain::Frame(Window& window)
+	{
+		EndFrame();
+		BeginFrame(window);
+	}
+	void SwapChain::AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers)
+	{
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.commandPool = _pools[_imageIndex][(int)type];
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandBufferCount = amount;
+		vkAllocateCommandBuffers(_core->device, &allocInfo, cmdBuffers);
 	}
 	void SwapChain::Create(ARENA arena, Window& window)
 	{
 		auto _ = mem::scope(TEMP);
+
+		_resolution = window.GetResolution();
 
 		auto details = TEMP_GetSwapChainSupportDetails(*_core);
 		auto format = ChooseSwapSurfaceFormat(details.formats);
@@ -42,8 +57,8 @@ namespace gr {
 		auto queueFamily = _core->queueFamily;
 
 		uint32_t queueFamilyIndices[] = {
-			queueFamily.queues[(int)QueueFamily::Type::graphics],
-			queueFamily.queues[(int)QueueFamily::Type::present]
+			queueFamily.queues[(int)QueueType::graphics],
+			queueFamily.queues[(int)QueueType::present]
 		};
 
 		// If not sharing the same queue.
@@ -81,17 +96,26 @@ namespace gr {
 		createInfo.oldSwapchain = oldSwapChain;
 
 		VkCheck(vkCreateSwapchainKHR(_core->device, &createInfo, nullptr, &_swapChain));
+		// Destroy old swapchain if it exists.
+		if(oldSwapChain)
+			vkDestroySwapchainKHR(_core->device, oldSwapChain, nullptr);
+
 		SetImages(arena, format, oldSwapChain);
-		SetCommandPools(arena);
+		SetCommandPools(arena, oldSwapChain);
 
 		auto renderPassBuilder = RenderPassBuilder();
 		_renderPass = renderPassBuilder.Build(*_core, format.format);
 
 		SetFrameBuffers(arena, oldSwapChain);
+		SetFencesAndSemaphores();
+
+		BeginFrame(window);
 	}
-	void SwapChain::Clear()
+	void SwapChain::Clear(bool destroySwapChain)
 	{
-		vkDeviceWaitIdle(_core->device);
+		vkDestroySemaphore(_core->device, _imageAvailableSemaphore, nullptr);
+		vkDestroySemaphore(_core->device, _renderFinishedSemaphore, nullptr);
+		vkDestroyFence(_core->device, _inFlightFence, nullptr);
 
 		for (uint32_t i = 0; i < _frameBuffers.length(); i++)
 			vkDestroyFramebuffer(_core->device, _frameBuffers[i], nullptr);
@@ -108,7 +132,8 @@ namespace gr {
 		for (uint32_t i = 0; i < _images.length(); i++)
 			vkDestroyImageView(_core->device, _views[i], nullptr);
 
-		vkDestroySwapchainKHR(_core->device, _swapChain, nullptr);
+		if(destroySwapChain)
+			vkDestroySwapchainKHR(_core->device, _swapChain, nullptr);
 	}
 	VkSurfaceFormatKHR SwapChain::ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats)
 	{
@@ -171,10 +196,10 @@ namespace gr {
 			vkCreateImageView(_core->device, &viewInfo, nullptr, &_views[i]);
 		}
 	}
-	void SwapChain::SetCommandPools(ARENA arena)
+	void SwapChain::SetCommandPools(ARENA arena, VkSwapchainKHR oldSwapChain)
 	{
 		const uint32_t l = _images.length();
-		if (l == 0)
+		if (!oldSwapChain)
 			_pools = mem::Arr<mem::Arr<VkCommandPool>>(arena, l);
 
 		// Create command pool
@@ -182,11 +207,12 @@ namespace gr {
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		
-		_pools = mem::Arr<mem::Arr<VkCommandPool>>(arena, l);
 		for (uint32_t i = 0; i < l; i++)
 		{
 			// Graphics, Compute, Transfer.
-			auto& framePools = _pools[i] = mem::Arr<VkCommandPool>(arena, QUEUE_LEN - 1);
+			if(!oldSwapChain)
+				_pools[i] = mem::Arr<VkCommandPool>(arena, QUEUE_LEN - 1);
+			auto& framePools = _pools[i];
 
 			// Excluding present buffer.
 			for (uint32_t j = 0; j < QUEUE_LEN - 1; j++)
@@ -215,6 +241,97 @@ namespace gr {
 			framebufferInfo.pAttachments = attachments;
 			VkCheck(vkCreateFramebuffer(_core->device, &framebufferInfo, nullptr, &_frameBuffers[i]));
 		}
+	}
+	void SwapChain::SetFencesAndSemaphores()
+	{
+		VkSemaphoreCreateInfo semInfo{};
+		semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		VkFenceCreateInfo fenceInfo{};
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+		vkCreateSemaphore(_core->device, &semInfo, nullptr, &_imageAvailableSemaphore);
+		vkCreateSemaphore(_core->device, &semInfo, nullptr, &_renderFinishedSemaphore);
+		vkCreateFence(_core->device, &fenceInfo, nullptr, &_inFlightFence);
+	}
+	void SwapChain::BeginFrame(Window& window)
+	{
+		auto device = _core->device;
+		vkWaitForFences(device, 1, &_inFlightFence, VK_TRUE, UINT64_MAX);
+		vkResetFences(device, 1, &_inFlightFence);
+
+		auto res = vkAcquireNextImageKHR(
+			device,
+			_swapChain,
+			UINT64_MAX,
+			_imageAvailableSemaphore,
+			VK_NULL_HANDLE,
+			&_imageIndex
+		);
+
+		if (res == VK_ERROR_OUT_OF_DATE_KHR)
+		{
+			Recreate(window);
+			return;
+		}
+
+		// Rather than keeping tracks of command buffers, just reset the pool every time.
+		auto& subPools = _pools[_imageIndex];
+		for (uint32_t i = 0; i < (int)QUEUE_LEN - 1; i++)
+			vkResetCommandPool(_core->device, subPools[i], 0);
+		
+		AllocCommandBuffers(QueueType::graphics, 1, &_cmd);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+		vkBeginCommandBuffer(_cmd, &beginInfo);
+
+		VkClearValue clearColor{};
+		clearColor.color = { {0.1f, 0.1f, 0.1f, 1.0f} };
+
+		VkRenderPassBeginInfo rpInfo{};
+		rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		rpInfo.renderPass = _renderPass;
+		rpInfo.framebuffer = _frameBuffers[_imageIndex];
+		rpInfo.renderArea.offset = { 0, 0 };
+		rpInfo.renderArea.extent = _extent;
+		rpInfo.clearValueCount = 1;
+		rpInfo.pClearValues = &clearColor;
+
+		vkCmdBeginRenderPass(_cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+	}
+	void SwapChain::EndFrame()
+	{
+		vkCmdEndRenderPass(_cmd);
+		vkEndCommandBuffer(_cmd);
+
+		VkPipelineStageFlags waitStages[] = {
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+		};
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = &_imageAvailableSemaphore;
+		submitInfo.pWaitDstStageMask = waitStages;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &_cmd;
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = &_renderFinishedSemaphore;
+
+		vkQueueSubmit(_core->queues[(int)QueueType::graphics], 1, &submitInfo, _inFlightFence);
+
+		VkPresentInfoKHR presentInfo{};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = &_renderFinishedSemaphore;
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = &_swapChain;
+		presentInfo.pImageIndices = &_imageIndex;
+
+		vkQueuePresentKHR(_core->queues[(int)QueueType::present], &presentInfo);
 	}
 	VkPresentModeKHR SwapChain::ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes)
 	{

@@ -209,9 +209,9 @@ namespace gr
             auto id = queueFamily.queues[i];
             if (!closed.contains(id, queue))
             {
-                queue = _core.queues[i];
                 vkGetDeviceQueue(_core.device, id, 0, &queue);
                 closed.insert(id, queue);
+                _core.queues[i] = queue;
             }
             else
                 _core.queues[i] = queue;
@@ -278,21 +278,21 @@ namespace gr
         uint32_t i = 0;
         arr.iterb([&family, &i, this](VkQueueFamilyProperties& current, auto) {
             if (current.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                family.queues[(int)QueueFamily::Type::graphics] = i;
+                family.queues[(int)QueueType::graphics] = i;
             }
 
             if (current.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-                family.queues[(int)QueueFamily::Type::transfer] = i;
+                family.queues[(int)QueueType::transfer] = i;
             }
 
             if (current.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                family.queues[(int)QueueFamily::Type::compute] = i;
+                family.queues[(int)QueueType::compute] = i;
             }
 
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(_core.physicalDevice, i, _core.surface, &presentSupport);
             if (presentSupport) {
-                family.queues[(int)QueueFamily::Type::present] = i;
+                family.queues[(int)QueueType::present] = i;
             }
 
             if (family.Complete())

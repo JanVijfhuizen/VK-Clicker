@@ -23,6 +23,7 @@ int main()
     scope.bind(swapChain);
 
     while (window.Update()) {
+        swapChain.Frame(window);
         mem::frame();
     }
 

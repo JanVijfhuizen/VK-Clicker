@@ -9,6 +9,9 @@ namespace gr
 
 		virtual void OnScopeClear() override;
 		void Recreate(Window& window);
+		void Frame(Window& window);
+
+		void AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers);
 
 	private:
 		Core* _core;
@@ -28,15 +31,22 @@ namespace gr
 		VkSemaphore _renderFinishedSemaphore;
 		VkFence _inFlightFence;
 
+		uint32_t _imageIndex;
+		VkCommandBuffer _cmd;
+
 		void Create(ARENA arena, Window& window);
-		void Clear();
+		void Clear(bool destroySwapChain);
 
 		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const mem::Arr<VkSurfaceFormatKHR>& formats);
 		VkPresentModeKHR ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes);
 		void SetSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		void SetImages(ARENA arena, VkSurfaceFormatKHR format, VkSwapchainKHR oldSwapChain);
-		void SetCommandPools(ARENA arena);
+		void SetCommandPools(ARENA arena, VkSwapchainKHR oldSwapChain);
 		void SetFrameBuffers(ARENA arena, VkSwapchainKHR oldSwapChain);
+		void SetFencesAndSemaphores();
+
+		void BeginFrame(Window& window);
+		void EndFrame();
 	};
 
 	struct SwapChainBuilder final
