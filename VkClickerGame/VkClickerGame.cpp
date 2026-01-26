@@ -6,6 +6,26 @@
 #include "DescriptorSetLayoutBuilder.h"
 #include "PushConstant.h"
 
+struct Renderer final : public gr::SwapChainResource {
+private:
+    gr::Pipeline _pipeline;
+    VkDescriptorSetLayout _descLayout;
+    virtual void OnCreate(const gr::Core& core, gr::SwapChain& swapChain) {
+        auto _ = mem::scope(TEMP);
+        auto descLayoutBuilder = gr::TEMP_DescriptorSetLayoutBuilder();
+        descLayoutBuilder.AddBinding(gr::BindingType::ubo, gr::BindingStep::fragment);
+        _descLayout = descLayoutBuilder.Build(core);
+        auto pipelineBuilder = gr::TEMP_PipelineBuilder();
+        pipelineBuilder.AddLayout(_descLayout);
+        pipelineBuilder.SetPushConstantSize(sizeof(gr::PushConstant));
+        _pipeline = pipelineBuilder.Build(core, swapChain.GetRenderPass());
+    }
+    virtual void OnDestroy(const gr::Core& core, gr::SwapChain& swapChain) {
+        _pipeline.Destroy(core);
+        vkDestroyDescriptorSetLayout(core.device, _descLayout, nullptr);
+    }
+};
+
 int main()
 {
     mem::init();
@@ -25,25 +45,13 @@ int main()
     scope.bind(core);
     scope.bind(swapChain);
 
-    gr::Pipeline pipeline;
-    VkDescriptorSetLayout descLayout;
-    {
-        auto _ = mem::scope(TEMP);
-        auto descLayoutBuilder = gr::TEMP_DescriptorSetLayoutBuilder();
-        descLayoutBuilder.AddBinding(gr::BindingType::ubo, gr::BindingStep::fragment);
-        descLayout = descLayoutBuilder.Build(core);
-        auto pipelineBuilder = gr::TEMP_PipelineBuilder();
-        pipelineBuilder.AddLayout(descLayout);
-        pipelineBuilder.SetPushConstantSize(sizeof(gr::PushConstant));
-        pipeline = pipelineBuilder.Build(core, swapChain.GetRenderPass());
-    }
+    auto renderer = Renderer();
+    swapChain.BindResource(&renderer);
 
     while (window.Update()) {
         swapChain.Frame(window);
         mem::frame();
     }
-
-    pipeline.Destroy(core);
 
     scope.clear();
     mem::end();

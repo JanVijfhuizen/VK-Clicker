@@ -2,7 +2,7 @@
 #include "DescriptorSetLayoutBuilder.h"
 
 namespace gr {
-	VkDescriptorSetLayout TEMP_DescriptorSetLayoutBuilder::Build(Core& core)
+	VkDescriptorSetLayout TEMP_DescriptorSetLayoutBuilder::Build(const Core& core)
 	{
 		auto _ = mem::scope(TEMP);
 		auto bindings = _bindings.arr(TEMP);

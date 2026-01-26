@@ -3,6 +3,13 @@
 
 namespace gr
 {
+	struct SwapChainResource {
+		friend class SwapChain;
+	protected:
+		virtual void OnCreate(const Core& core, SwapChain& swapChain) = 0;
+		virtual void OnDestroy(const Core& core, SwapChain& swapChain) = 0;
+	};
+
 	struct SwapChain final : public mem::IScoped
 	{
 		friend struct SwapChainBuilder;
@@ -11,11 +18,14 @@ namespace gr
 		void Recreate(Window& window);
 		void Frame(Window& window);
 
+		void BindResource(SwapChainResource* resource);
 		void AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers);
 		VkRenderPass GetRenderPass();
 
 	private:
+		ARENA _arena;
 		Core* _core;
+		mem::Link<SwapChainResource*> _resources{};
 		PresentMode _preferredPresentMode = PresentMode::mailbox;
 		glm::ivec2 _resolution;
 		VkExtent2D _extent;

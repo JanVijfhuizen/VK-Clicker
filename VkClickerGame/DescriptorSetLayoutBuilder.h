@@ -13,7 +13,7 @@ namespace gr {
 
 	struct TEMP_DescriptorSetLayoutBuilder final
 	{
-		VkDescriptorSetLayout Build(Core& core);
+		VkDescriptorSetLayout Build(const Core& core);
 		TEMP_DescriptorSetLayoutBuilder& AddBinding(BindingType type, BindingStep step, uint32_t count = 1);
 	private:
 		struct Binding final {
@@ -22,6 +22,6 @@ namespace gr {
 			BindingStep step = BindingStep::vertex;
 		};
 
-		mem::Link<Binding> _bindings;
+		mem::Link<Binding> _bindings{};
 	};
 }

@@ -21,6 +21,11 @@ namespace gr {
 		EndFrame();
 		BeginFrame(window);
 	}
+	void SwapChain::BindResource(SwapChainResource* resource)
+	{
+		_resources.add(_arena) = resource;
+		resource->OnCreate(*_core, *this);
+	}
 	void SwapChain::AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers)
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
@@ -113,10 +118,20 @@ namespace gr {
 		SetFrameBuffers(arena, oldSwapChain);
 		SetFencesAndSemaphores();
 
+		auto res = _resources.arr(TEMP);
+		for (uint32_t i = 0; i < res.length(); i++)
+			res[i]->OnCreate(*_core, *this);
+
 		BeginFrame(window);
 	}
 	void SwapChain::Clear(bool destroySwapChain)
 	{
+		auto _ = mem::scope(TEMP);
+
+		auto res = _resources.arr(TEMP);
+		for (uint32_t i = 0; i < res.length(); i++)
+			res[i]->OnDestroy(*_core, *this);
+
 		vkDestroySemaphore(_core->device, _imageAvailableSemaphore, nullptr);
 		vkDestroySemaphore(_core->device, _renderFinishedSemaphore, nullptr);
 		vkDestroyFence(_core->device, _inFlightFence, nullptr);
@@ -358,6 +373,7 @@ namespace gr {
 	}
 	SwapChain SwapChainBuilder::Build(ARENA arena, Core& core, Window& window)
 	{
+		_swapChain._arena = arena;
 		_swapChain._core = &core;
 		_swapChain.Create(arena, window);
 		return _swapChain;

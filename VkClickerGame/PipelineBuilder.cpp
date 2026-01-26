@@ -4,7 +4,7 @@
 #include "VkCheck.h"
 
 namespace gr {
-    Pipeline TEMP_PipelineBuilder::Build(Core& core, VkRenderPass renderPass)
+    Pipeline TEMP_PipelineBuilder::Build(const Core& core, VkRenderPass renderPass)
 	{
         auto _ = mem::scope(TEMP);
         auto vert = LoadShader(core.device, _vertPath);
@@ -172,7 +172,7 @@ namespace gr {
         _pushConstantSize = size;
         return *this;
     }
-    void Pipeline::Destroy(Core& core)
+    void Pipeline::Destroy(const Core& core)
     {
         vkDestroyPipelineLayout(core.device, layout, nullptr);
         vkDestroyPipeline(core.device, value, nullptr);
