@@ -332,6 +332,22 @@ namespace gr {
 		rpInfo.pClearValues = &clearColor;
 
 		vkCmdBeginRenderPass(_cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		VkViewport vp{};
+		vp.x = 0;
+		vp.y = 0;
+		vp.width = (float)_extent.width;
+		vp.height = (float)_extent.height;
+		vp.minDepth = 0.0f;
+		vp.maxDepth = 1.0f;
+
+		vkCmdSetViewport(_cmd, 0, 1, &vp);
+
+		VkRect2D sc{};
+		sc.offset = { 0,0 };
+		sc.extent = _extent;
+
+		vkCmdSetScissor(_cmd, 0, 1, &sc);
 	}
 	void SwapChain::EndFrame()
 	{

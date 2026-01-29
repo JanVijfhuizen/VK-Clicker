@@ -12,7 +12,6 @@ namespace gr {
 		VkDevice device;
 		VkDebugUtilsMessengerEXT debugMessenger;
 		Queues queueFamily;
-		glm::ivec2 resolution;
 		VkQueue queues[Queues::length];
 
 		virtual void OnScopeClear() override;

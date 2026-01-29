@@ -17,9 +17,83 @@ struct Renderer final : public gr::SwapChainResource {
         auto _ = mem::scope(TEMP);
         auto meshBuilder = gr::TEMP_MeshBuilder();
         _mesh = meshBuilder.SetQuad().Build(core, swapChain);
+
+        auto descLayoutBuilder = gr::TEMP_DescriptorSetLayoutBuilder();
+        descLayoutBuilder.AddBinding(gr::BindingType::ubo, gr::BindingStep::fragment);
+        _descLayout = descLayoutBuilder.Build(core, *_descLayoutManager);
+        auto pipelineBuilder = gr::TEMP_PipelineBuilder();
+        pipelineBuilder.AddLayout(_descLayout);
+        pipelineBuilder.SetPushConstantSize(sizeof(gr::PushConstant));
+        _pipeline = pipelineBuilder.Build(core, swapChain.GetRenderPass());
+
+        auto frameCount = swapChain.GetFrameCount();
+
+        VkDescriptorPoolSize poolSize{};
+        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSize.descriptorCount = frameCount;
+
+        VkDescriptorPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.poolSizeCount = 1;
+        poolInfo.pPoolSizes = &poolSize;
+        poolInfo.maxSets = frameCount;
+
+        gr::VkCheck(vkCreateDescriptorPool(core.device, &poolInfo, nullptr, &_descriptorPool));
+
+        _scope = mem::scope(PERS + 1);
+        auto layouts = mem::Arr<VkDescriptorSetLayout>(TEMP, frameCount);
+        layouts.set(_descLayout);
+
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = _descriptorPool;
+        allocInfo.descriptorSetCount = layouts.length();
+        allocInfo.pSetLayouts = layouts.ptr();
+
+        _sets = mem::Arr<VkDescriptorSet>(PERS + 1, frameCount);
+        gr::VkCheck(vkAllocateDescriptorSets(core.device, &allocInfo, _sets.ptr()));
+
+        _buffers = mem::Arr<gr::Buffer>(PERS + 1, frameCount);
+        for (uint32_t i = 0; i < frameCount; i++) {
+            auto builder = gr::BufferBuilder();
+            _buffers[i] = builder.Build(core, sizeof(gr::ColorUBO),
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        }
+
+        for (uint32_t i = 0; i < frameCount; i++) {
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = _buffers[i].value;
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(gr::ColorUBO);
+
+            VkWriteDescriptorSet write{};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = _sets[i];
+            write.dstBinding = 0;
+            write.dstArrayElement = 0;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            write.descriptorCount = 1;
+            write.pBufferInfo = &bufferInfo;
+
+            vkUpdateDescriptorSets(
+                core.device,
+                1,
+                &write,
+                0,
+                nullptr
+            );
+        }
     }
     void Exit(const gr::Core& core) {
         _mesh.Destroy(core);
+
+        for (uint32_t i = 0; i < _buffers.length(); i++)
+            _buffers[i].Destroy(core);
+        vkDestroyDescriptorPool(core.device, _descriptorPool, nullptr);
+        _pipeline.Destroy(core);
+        _scope.clear();
     }
     void Draw(const gr::Core& core, gr::SwapChain& swapChain) {
         auto cmd = swapChain.GetCmd();
@@ -116,81 +190,10 @@ private:
     gr::Mesh _mesh;
 
     virtual void OnCreate(const gr::Core& core, gr::SwapChain& swapChain) {
-        auto _ = mem::scope(TEMP);
-        auto descLayoutBuilder = gr::TEMP_DescriptorSetLayoutBuilder();
-        descLayoutBuilder.AddBinding(gr::BindingType::ubo, gr::BindingStep::fragment);
-        _descLayout = descLayoutBuilder.Build(core, *_descLayoutManager);
-        auto pipelineBuilder = gr::TEMP_PipelineBuilder();
-        pipelineBuilder.AddLayout(_descLayout);
-        pipelineBuilder.SetPushConstantSize(sizeof(gr::PushConstant));
-        _pipeline = pipelineBuilder.Build(core, swapChain.GetRenderPass());
-
-        auto frameCount = swapChain.GetFrameCount();
-
-        VkDescriptorPoolSize poolSize{};
-        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSize.descriptorCount = frameCount;
-
-        VkDescriptorPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = 1;
-        poolInfo.pPoolSizes = &poolSize;
-        poolInfo.maxSets = frameCount;
-
-        gr::VkCheck(vkCreateDescriptorPool(core.device, &poolInfo, nullptr, &_descriptorPool));
-
-        _scope = mem::scope(PERS + 1);
-        auto layouts = mem::Arr<VkDescriptorSetLayout>(TEMP, frameCount);
-        layouts.set(_descLayout);
-
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = _descriptorPool;
-        allocInfo.descriptorSetCount = layouts.length();
-        allocInfo.pSetLayouts = layouts.ptr();
-
-        _sets = mem::Arr<VkDescriptorSet>(PERS + 1, frameCount);
-        gr::VkCheck(vkAllocateDescriptorSets(core.device, &allocInfo, _sets.ptr()));
-
-        _buffers = mem::Arr<gr::Buffer>(PERS + 1, frameCount);
-        for (uint32_t i = 0; i < frameCount; i++) {
-            auto builder = gr::BufferBuilder();
-            _buffers[i] = builder.Build(core, sizeof(gr::ColorUBO),
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        }
-
-        for (uint32_t i = 0; i < frameCount; i++) {
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = _buffers[i].value;
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(gr::ColorUBO);
-
-            VkWriteDescriptorSet write{};
-            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            write.dstSet = _sets[i];
-            write.dstBinding = 0;
-            write.dstArrayElement = 0;
-            write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            write.descriptorCount = 1;
-            write.pBufferInfo = &bufferInfo;
-
-            vkUpdateDescriptorSets(
-                core.device,
-                1,
-                &write,
-                0,
-                nullptr
-            );
-        }
+        
     }
     virtual void OnDestroy(const gr::Core& core, gr::SwapChain& swapChain) {
-        for (uint32_t i = 0; i < _buffers.length(); i++)
-            _buffers[i].Destroy(core);
-        vkDestroyDescriptorPool(core.device, _descriptorPool, nullptr);
-        _pipeline.Destroy(core);
-        _scope.clear();
+       
     }
 };
 

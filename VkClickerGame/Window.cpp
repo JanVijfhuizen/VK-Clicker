@@ -29,6 +29,9 @@ namespace gr {
 	{
 		if (glfwWindowShouldClose(_value))
 			return false;
+
+		glfwGetWindowSize(_value, &_resolution.x, &_resolution.y);
+
 		glfwPollEvents();
 		return true;
 	}

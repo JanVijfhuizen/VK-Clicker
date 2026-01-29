@@ -11,7 +11,6 @@ namespace gr
 		assert(arena != TEMP);
 
 		_core = {};
-		_core.resolution = window.GetResolution();
 
 		BuildInstance(arena, window);
 		BuildSurface(window);
