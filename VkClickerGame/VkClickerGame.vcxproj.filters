@@ -111,6 +111,9 @@
     <ClCompile Include="DescriptorWriter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DescriptorPool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Window.h">
@@ -207,6 +210,15 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="DescriptorWriter.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="DescriptorPool.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="BindingType.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="BindingStep.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
   </ItemGroup>

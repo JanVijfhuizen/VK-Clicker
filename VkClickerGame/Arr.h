@@ -24,6 +24,7 @@ namespace mem
 		Arr<T> part(uint32_t i, uint32_t length);
 		void set(T value);
 		int32_t contains(T value);
+		void fill(T value);
 
 		template <typename U>
 		void iter(U func, bool reverse = false) const;
@@ -156,6 +157,12 @@ namespace mem
 			if (_ptr[i] == value)
 				return i;
 		return -1;
+	}
+	template<typename T>
+	inline void Arr<T>::fill(T value)
+	{
+		for (uint32_t i = 0; i < _length; i++)
+			_ptr[i] = value;
 	}
 	template<typename T>
 	inline uint32_t* Arr<T>::makeExtSort(uint8_t arena) const

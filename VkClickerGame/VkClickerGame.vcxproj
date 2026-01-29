@@ -141,6 +141,7 @@
     <ClCompile Include="Arr.cpp" />
     <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Core.cpp" />
+    <ClCompile Include="DescriptorPool.cpp" />
     <ClCompile Include="DescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="DescriptorSetLayoutManager.cpp" />
     <ClCompile Include="DescriptorWriter.cpp" />
@@ -174,9 +175,12 @@
   <ItemGroup>
     <ClInclude Include="Arena.h" />
     <ClInclude Include="Arr.h" />
+    <ClInclude Include="BindingStep.h" />
+    <ClInclude Include="BindingType.h" />
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="ColorUBO.h" />
     <ClInclude Include="Core.h" />
+    <ClInclude Include="DescriptorPool.h" />
     <ClInclude Include="DescriptorSetLayoutBuilder.h" />
     <ClInclude Include="DescriptorSetLayoutManager.h" />
     <ClInclude Include="DescriptorWriter.h" />

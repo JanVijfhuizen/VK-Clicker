@@ -11,6 +11,7 @@
 #include "Buffer.h"
 #include "Mesh.h"
 #include "DescriptorWriter.h"
+#include "DescriptorPool.h"
 
 struct Renderer final {
     void Init(const gr::Core& core, gr::SwapChain& swapChain, gr::DescriptorSetLayoutManager& descLayoutManager) {
@@ -23,9 +24,9 @@ struct Renderer final {
 
         auto descLayoutBuilder = gr::TEMP_DescriptorSetLayoutBuilder();
         descLayoutBuilder.AddBinding(gr::BindingType::ubo, gr::BindingStep::fragment);
-        _descLayout = descLayoutBuilder.Build(core, *_descLayoutManager);
+        auto layout = descLayoutBuilder.Build(core, *_descLayoutManager);
         auto pipelineBuilder = gr::TEMP_PipelineBuilder();
-        pipelineBuilder.AddLayout(_descLayout);
+        pipelineBuilder.AddLayout(layout);
         pipelineBuilder.SetPushConstantSize(sizeof(gr::PushConstant));
         _pipeline = pipelineBuilder.Build(core, swapChain.GetRenderPass());
 
@@ -41,20 +42,13 @@ struct Renderer final {
         poolInfo.pPoolSizes = &poolSize;
         poolInfo.maxSets = frameCount;
 
-        gr::VkCheck(vkCreateDescriptorPool(core.device, &poolInfo, nullptr, &_descriptorPool));
+        _scope = mem::manualScope(PERS);
 
-        _scope = mem::scope(PERS);
-        auto layouts = mem::Arr<VkDescriptorSetLayout>(TEMP, frameCount);
-        layouts.set(_descLayout);
+        auto descPoolBuilder = gr::DescriptorPoolBuilder();
+        auto bindingsType = gr::BindingType::ubo;
 
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = _descriptorPool;
-        allocInfo.descriptorSetCount = layouts.length();
-        allocInfo.pSetLayouts = layouts.ptr();
-
-        _sets = mem::Arr<VkDescriptorSet>(PERS, frameCount);
-        gr::VkCheck(vkAllocateDescriptorSets(core.device, &allocInfo, _sets.ptr()));
+        _descriptorPool = descPoolBuilder.Build(core, &bindingsType, &frameCount, 1, frameCount);
+        _sets = _descriptorPool.Alloc(PERS, core, layout, frameCount);
 
         _buffers = mem::Arr<gr::Buffer>(PERS, frameCount);
         for (uint32_t i = 0; i < frameCount; i++) {
@@ -73,7 +67,7 @@ struct Renderer final {
 
         for (uint32_t i = 0; i < _buffers.length(); i++)
             _buffers[i].Destroy(core);
-        vkDestroyDescriptorPool(core.device, _descriptorPool, nullptr);
+        _descriptorPool.Destroy(core);
         _pipeline.Destroy(core);
         _scope.clear();
     }
@@ -164,9 +158,8 @@ struct Renderer final {
 private:
     gr::DescriptorSetLayoutManager* _descLayoutManager;
     gr::Pipeline _pipeline;
-    VkDescriptorSetLayout _descLayout;
-    VkDescriptorPool _descriptorPool;
     mem::Scope _scope;
+    gr::DescriptorPool _descriptorPool;
     mem::Arr<VkDescriptorSet> _sets;
     mem::Arr<gr::Buffer> _buffers;
     gr::Mesh _mesh;

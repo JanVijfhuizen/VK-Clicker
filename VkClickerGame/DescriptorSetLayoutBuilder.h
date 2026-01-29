@@ -1,17 +1,10 @@
 #pragma once
 #include "Core.h"
+#include "BindingType.h"
+#include "BindingStep.h"
 
 namespace gr {
 	struct DescriptorSetLayoutManager;
-
-	enum class BindingType {
-		ubo
-	};
-
-	enum class BindingStep {
-		fragment,
-		vertex
-	};
 
 	struct Binding final {
 		uint32_t count = 1;
