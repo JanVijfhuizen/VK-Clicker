@@ -176,7 +176,7 @@ namespace gr
         auto queueFamily = _core.queueFamily = GetQueueFamily();
 
         auto _ = mem::scope(TEMP);
-        const uint32_t l = QUEUE_LEN;
+        const uint32_t l = Queues::length;
         auto set = mem::Set<uint32_t>(TEMP, l);
         for (uint32_t i = 0; i < l; i++)
         {
@@ -246,7 +246,7 @@ namespace gr
             VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
             VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = DebugCallback;
-        createInfo.pUserData = nullptr; // optional
+        createInfo.pUserData = nullptr;
         auto func = (PFN_vkCreateDebugUtilsMessengerEXT)
             vkGetInstanceProcAddr(_core.instance, "vkCreateDebugUtilsMessengerEXT");
         auto result = func ? func(_core.instance, &createInfo, nullptr, &_core.debugMessenger)
@@ -267,10 +267,10 @@ namespace gr
         vkEnumeratePhysicalDevices(_core.instance, &deviceCount, arr.ptr());
         return arr;
     }
-    QueueFamily CoreBuilder::GetQueueFamily()
+    Queues CoreBuilder::GetQueueFamily()
     {
-        QueueFamily family{};
-        for (uint32_t i = 0; i < QUEUE_LEN; i++)
+        Queues family{};
+        for (uint32_t i = 0; i < Queues::length; i++)
             family.queues[i] = -1;
 
         uint32_t familyCount = 0;
@@ -283,21 +283,21 @@ namespace gr
         uint32_t i = 0;
         arr.iterb([&family, &i, this](VkQueueFamilyProperties& current, auto) {
             if (current.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                family.queues[(int)QueueType::graphics] = i;
+                family.queues[Queues::graphics] = i;
             }
 
             if (current.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-                family.queues[(int)QueueType::transfer] = i;
+                family.queues[Queues::transfer] = i;
             }
 
             if (current.queueFlags & VK_QUEUE_COMPUTE_BIT) {
-                family.queues[(int)QueueType::compute] = i;
+                family.queues[Queues::compute] = i;
             }
 
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(_core.physicalDevice, i, _core.surface, &presentSupport);
             if (presentSupport) {
-                family.queues[(int)QueueType::present] = i;
+                family.queues[Queues::present] = i;
             }
 
             if (family.Complete())

@@ -19,7 +19,7 @@ namespace gr
 		void Frame(Window& window);
 
 		void BindResource(SwapChainResource* resource);
-		void AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers);
+		void AllocCommandBuffers(Queues::Type type, uint32_t amount, VkCommandBuffer* cmdBuffers);
 		VkRenderPass GetRenderPass();
 		uint32_t GetFrameCount();
 		VkCommandBuffer GetCmd();

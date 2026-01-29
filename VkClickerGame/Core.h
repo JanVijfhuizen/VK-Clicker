@@ -1,6 +1,6 @@
 #pragma once
 #include <vulkan/vulkan_core.h>
-#include "QueueFamily.h"
+#include "Queues.h"
 #include "Window.h"
 #include "PresentMode.h"
 
@@ -11,9 +11,9 @@ namespace gr {
 		VkPhysicalDevice physicalDevice;
 		VkDevice device;
 		VkDebugUtilsMessengerEXT debugMessenger;
-		QueueFamily queueFamily;
+		Queues queueFamily;
 		glm::ivec2 resolution;
-		VkQueue queues[QUEUE_LEN];
+		VkQueue queues[Queues::length];
 
 		virtual void OnScopeClear() override;
 
@@ -46,6 +46,6 @@ namespace gr {
 		void BuildDebugUtilsMessengerEXT();
 
 		mem::Arr<VkPhysicalDevice> GetPhysicalDevices();
-		QueueFamily GetQueueFamily();
+		Queues GetQueueFamily();
 	};
 }

@@ -7,26 +7,14 @@
 #include "PushConstant.h"
 #include "VkCheck.h"
 #include "ColorUBO.h"
-#include "BufferBuilder.h"
+#include "Buffer.h"
+#include "Mesh.h"
 
 struct Renderer final : public gr::SwapChainResource {
     void Init(const gr::Core& core, gr::SwapChain& swapChain) {
-        const gr::Vertex triangleVertices[] = {
-            {{  0.0f, -0.5f }},
-            {{  0.5f,  0.5f }},
-            {{ -0.5f,  0.5f }}
-        };
-
-        auto builder = gr::BufferBuilder();
-        _mesh = builder.Build(core, sizeof(triangleVertices),
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        void* data;
-        vkMapMemory(core.device, _mesh.memory, 0, VK_WHOLE_SIZE, 0, &data);
-        memcpy(data, triangleVertices, sizeof(triangleVertices));
-        vkUnmapMemory(core.device, _mesh.memory);
+        auto _ = mem::scope(TEMP);
+        auto meshBuilder = gr::TEMP_MeshBuilder();
+        _mesh = meshBuilder.SetQuad().Build(core, swapChain);
     }
     void Exit(const gr::Core& core) {
         _mesh.Destroy(core);
@@ -44,10 +32,6 @@ struct Renderer final : public gr::SwapChainResource {
             0, nullptr
         );
 
-        VkBuffer vertexBuffers[] = { _mesh.value };
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
-
         gr::PushConstant pc{};
         Rotate(pc);
         Color(core, swapChain);
@@ -61,7 +45,7 @@ struct Renderer final : public gr::SwapChainResource {
             &pc
         );
 
-        vkCmdDraw(cmd, 3, 1, 0, 0);
+        _mesh.Draw(cmd, core);
     }
 
     void Rotate(gr::PushConstant& pc) {
@@ -114,7 +98,7 @@ private:
     mem::Scope _scope;
     mem::Arr<VkDescriptorSet> _sets;
     mem::Arr<gr::Buffer> _buffers;
-    gr::Buffer _mesh;
+    gr::Mesh _mesh;
 
     virtual void OnCreate(const gr::Core& core, gr::SwapChain& swapChain) {
         auto _ = mem::scope(TEMP);

@@ -72,7 +72,7 @@
     <ClCompile Include="ShaderLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="QueueFamily.cpp">
+    <ClCompile Include="Queues.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SwapChain.cpp">
@@ -99,7 +99,10 @@
     <ClCompile Include="DescriptorSetLayoutBuilder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BufferBuilder.cpp">
+    <ClCompile Include="Buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -155,7 +158,7 @@
     <ClInclude Include="PushConstant.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="QueueFamily.h">
+    <ClInclude Include="Queues.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SwapChainSupportDetails.h">
@@ -185,11 +188,14 @@
     <ClInclude Include="ColorUBO.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="BufferBuilder.h">
+    <ClInclude Include="Buffer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="ThreadPool.h">
       <Filter>Header Files\Mem</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

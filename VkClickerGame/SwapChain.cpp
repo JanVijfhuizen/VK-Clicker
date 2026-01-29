@@ -26,7 +26,7 @@ namespace gr {
 		_resources.add(_arena) = resource;
 		resource->OnCreate(*_core, *this);
 	}
-	void SwapChain::AllocCommandBuffers(QueueType type, uint32_t amount, VkCommandBuffer* cmdBuffers)
+	void SwapChain::AllocCommandBuffers(Queues::Type type, uint32_t amount, VkCommandBuffer* cmdBuffers)
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -78,8 +78,8 @@ namespace gr {
 		auto queueFamily = _core->queueFamily;
 
 		uint32_t queueFamilyIndices[] = {
-			queueFamily.queues[(int)QueueType::graphics],
-			queueFamily.queues[(int)QueueType::present]
+			queueFamily.queues[Queues::Type::graphics],
+			queueFamily.queues[Queues::Type::present]
 		};
 
 		// If not sharing the same queue.
@@ -242,11 +242,11 @@ namespace gr {
 		{
 			// Graphics, Compute, Transfer.
 			if(!oldSwapChain)
-				_pools[i] = mem::Arr<VkCommandPool>(arena, QUEUE_LEN - 1);
+				_pools[i] = mem::Arr<VkCommandPool>(arena, Queues::length - 1);
 			auto& framePools = _pools[i];
 
 			// Excluding present buffer.
-			for (uint32_t j = 0; j < QUEUE_LEN - 1; j++)
+			for (uint32_t j = 0; j < Queues::length - 1; j++)
 			{
 				poolInfo.queueFamilyIndex = _core->queueFamily.queues[j];
 				VkCheck(vkCreateCommandPool(_core->device, &poolInfo, nullptr, &framePools[j]));
@@ -309,10 +309,10 @@ namespace gr {
 
 		// Rather than keeping tracks of command buffers, just reset the pool every time.
 		auto& subPools = _pools[_imageIndex];
-		for (uint32_t i = 0; i < (int)QUEUE_LEN - 1; i++)
+		for (uint32_t i = 0; i < Queues::length - 1; i++)
 			vkResetCommandPool(_core->device, subPools[i], VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 		
-		AllocCommandBuffers(QueueType::graphics, 1, &_cmd);
+		AllocCommandBuffers(Queues::graphics, 1, &_cmd);
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -352,7 +352,7 @@ namespace gr {
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &_renderFinishedSemaphore;
 
-		vkQueueSubmit(_core->queues[(int)QueueType::graphics], 1, &submitInfo, _inFlightFence);
+		vkQueueSubmit(_core->queues[Queues::graphics], 1, &submitInfo, _inFlightFence);
 
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -362,7 +362,7 @@ namespace gr {
 		presentInfo.pSwapchains = &_swapChain;
 		presentInfo.pImageIndices = &_imageIndex;
 
-		vkQueuePresentKHR(_core->queues[(int)QueueType::present], &presentInfo);
+		vkQueuePresentKHR(_core->queues[Queues::present], &presentInfo);
 	}
 	VkPresentModeKHR SwapChain::ChooseSwapPresentMode(const mem::Arr<VkPresentModeKHR>& modes)
 	{

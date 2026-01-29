@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "BufferBuilder.h"
+#include "Buffer.h"
 #include "VkCheck.h"
 
 namespace gr {
