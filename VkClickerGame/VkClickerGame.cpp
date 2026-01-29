@@ -46,6 +46,18 @@ struct Renderer final : public gr::SwapChainResource {
         );
 
         _mesh.Draw(cmd, core);
+
+        pc.transform = glm::mat4x4(1);
+        vkCmdPushConstants(
+            cmd,
+            _pipeline.layout,
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            sizeof(gr::PushConstant),
+            &pc
+        );
+
+        _mesh.Draw(cmd, core);
     }
 
     void Rotate(gr::PushConstant& pc) {
