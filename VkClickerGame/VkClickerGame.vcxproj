@@ -143,6 +143,7 @@
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="DescriptorSetLayoutBuilder.cpp" />
     <ClCompile Include="DescriptorSetLayoutManager.cpp" />
+    <ClCompile Include="DescriptorWriter.cpp" />
     <ClCompile Include="FileLoader.cpp" />
     <ClCompile Include="KeyPair.cpp" />
     <ClCompile Include="Link.cpp" />
@@ -178,6 +179,7 @@
     <ClInclude Include="Core.h" />
     <ClInclude Include="DescriptorSetLayoutBuilder.h" />
     <ClInclude Include="DescriptorSetLayoutManager.h" />
+    <ClInclude Include="DescriptorWriter.h" />
     <ClInclude Include="FileLoader.h" />
     <ClInclude Include="KeyPair.h" />
     <ClInclude Include="Link.h" />

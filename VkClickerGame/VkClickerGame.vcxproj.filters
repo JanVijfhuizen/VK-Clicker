@@ -108,6 +108,9 @@
     <ClCompile Include="DescriptorSetLayoutManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DescriptorWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Window.h">
@@ -201,6 +204,9 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="DescriptorSetLayoutManager.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="DescriptorWriter.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
   </ItemGroup>

@@ -34,6 +34,7 @@ namespace gr {
 
 		VkCheck(vkAllocateMemory(core.device, &allocInfo, nullptr, &buffer.memory));
 		vkBindBufferMemory(core.device, buffer.value, buffer.memory, 0);
+		buffer.size = bufferInfo.size;
 		return buffer;
 	}
 }
