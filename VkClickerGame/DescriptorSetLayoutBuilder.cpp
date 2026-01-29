@@ -1,11 +1,38 @@
 #include "pch.h"
 #include "DescriptorSetLayoutBuilder.h"
+#include "DescriptorSetLayoutManager.h"
 
 namespace gr {
-	VkDescriptorSetLayout TEMP_DescriptorSetLayoutBuilder::Build(const Core& core)
+	VkDescriptorSetLayout TEMP_DescriptorSetLayoutBuilder::Build(const Core& core, DescriptorSetLayoutManager& manager)
 	{
 		auto _ = mem::scope(TEMP);
 		auto bindings = _bindings.arr(TEMP);
+
+		auto keys = mem::Arr<uint64_t>(TEMP, bindings.length());
+		for (uint32_t i = 0; i < bindings.length(); i++)
+			keys[i] = bindings[i].Hash();
+
+		// Look if this set already exists.
+		auto existingSets = manager._sets.arr(TEMP);
+		for (uint32_t i = 0; i < existingSets.length(); i++)
+		{
+			auto& existingSet = existingSets[i];
+			auto& oKeys = existingSet.keys;
+			if (oKeys.length() != bindings.length())
+				continue;
+
+			bool valid = true;
+			for (uint32_t j = 0; j < oKeys.length(); j++)
+			{
+				if (oKeys[i] == keys[i])
+					continue;
+				valid = false;
+				break;
+			}
+
+			if (valid)
+				return existingSet.layout;
+		}
 
 		auto ptrs = mem::Arr<VkDescriptorSetLayoutBinding>(TEMP, bindings.length());
 		for (uint32_t i = 0; i < bindings.length(); i++)
@@ -47,6 +74,12 @@ namespace gr {
 
 		VkDescriptorSetLayout layout;
 		vkCreateDescriptorSetLayout(core.device, &setLayoutInfo, nullptr, &layout);
+
+		auto set = DescriptorSetLayoutManager::Set();
+		set.keys = keys.copy(PERS);
+		set.layout = layout;
+		manager._sets.add(PERS) = set;
+
 		return layout;
 	}
 	TEMP_DescriptorSetLayoutBuilder& TEMP_DescriptorSetLayoutBuilder::AddBinding(
@@ -58,5 +91,9 @@ namespace gr {
 		binding.count = count;
 		_bindings.add(TEMP) = binding;
 		return *this;
+	}
+	uint64_t Binding::Hash()
+	{
+		return count | ((uint64_t)type << 4) | ((uint64_t)step << 8);
 	}
 }

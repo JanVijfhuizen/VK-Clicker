@@ -84,7 +84,7 @@ namespace mem
 	{
 		assert(from >= 0);
 		assert(to < (int32_t)_length);
-		assert(to > -(int32_t)_length);
+		assert(to > -(int32_t)_length || to == -1);
 		uint32_t uto = to >= 0 ? to : _length - abs(to + 1);
 		uint32_t l = uto - from;
 		auto oArr = Arr<T>(arena, l);

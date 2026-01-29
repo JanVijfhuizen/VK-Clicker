@@ -4,6 +4,7 @@
 #include "SwapChain.h"
 #include "PipelineBuilder.h"
 #include "DescriptorSetLayoutBuilder.h"
+#include "DescriptorSetLayoutManager.h"
 #include "PushConstant.h"
 #include "VkCheck.h"
 #include "ColorUBO.h"
@@ -11,7 +12,8 @@
 #include "Mesh.h"
 
 struct Renderer final : public gr::SwapChainResource {
-    void Init(const gr::Core& core, gr::SwapChain& swapChain) {
+    void Init(const gr::Core& core, gr::SwapChain& swapChain, gr::DescriptorSetLayoutManager& descLayoutManager) {
+        _descLayoutManager = &descLayoutManager;
         auto _ = mem::scope(TEMP);
         auto meshBuilder = gr::TEMP_MeshBuilder();
         _mesh = meshBuilder.SetQuad().Build(core, swapChain);
@@ -104,6 +106,7 @@ struct Renderer final : public gr::SwapChainResource {
     }
 
 private:
+    gr::DescriptorSetLayoutManager* _descLayoutManager;
     gr::Pipeline _pipeline;
     VkDescriptorSetLayout _descLayout;
     VkDescriptorPool _descriptorPool;
@@ -116,7 +119,7 @@ private:
         auto _ = mem::scope(TEMP);
         auto descLayoutBuilder = gr::TEMP_DescriptorSetLayoutBuilder();
         descLayoutBuilder.AddBinding(gr::BindingType::ubo, gr::BindingStep::fragment);
-        _descLayout = descLayoutBuilder.Build(core);
+        _descLayout = descLayoutBuilder.Build(core, *_descLayoutManager);
         auto pipelineBuilder = gr::TEMP_PipelineBuilder();
         pipelineBuilder.AddLayout(_descLayout);
         pipelineBuilder.SetPushConstantSize(sizeof(gr::PushConstant));
@@ -187,7 +190,6 @@ private:
             _buffers[i].Destroy(core);
         vkDestroyDescriptorPool(core.device, _descriptorPool, nullptr);
         _pipeline.Destroy(core);
-        vkDestroyDescriptorSetLayout(core.device, _descLayout, nullptr);
         _scope.clear();
     }
 };
@@ -210,11 +212,14 @@ int main()
     auto swapChainBuilder = gr::SwapChainBuilder();
     auto swapChain = swapChainBuilder.Build(PERS, core, window);
 
+    auto descLayoutManager = gr::DescriptorSetLayoutManager(PERS, core);
+
     scope.bind(core);
     scope.bind(swapChain);
+    scope.bind(descLayoutManager);
 
     auto renderer = Renderer();
-    renderer.Init(core, swapChain);
+    renderer.Init(core, swapChain, descLayoutManager);
     swapChain.BindResource(&renderer);
 
     while (window.Update()) {
