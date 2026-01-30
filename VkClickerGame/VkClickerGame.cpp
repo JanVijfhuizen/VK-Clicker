@@ -12,6 +12,7 @@
 #include "Mesh.h"
 #include "DescriptorWriter.h"
 #include "DescriptorPool.h"
+#include "Allocators.h"
 
 struct Renderer final {
     void Init(const gr::Core& core, gr::SwapChain& swapChain, gr::DescriptorSetLayoutManager& descLayoutManager) {
@@ -182,12 +183,15 @@ int main()
     auto coreBuilder = gr::CoreBuilder();
     auto core = coreBuilder.AddGLFWSupport().EnableValidationLayers(true).Build(PERS, window);
 
+    auto allocators = gr::Allocators(core, 4096 * 16, 4096 * 64);
+
     auto swapChainBuilder = gr::SwapChainBuilder();
     auto swapChain = swapChainBuilder.Build(PERS, core, window);
 
     auto descLayoutManager = gr::DescriptorSetLayoutManager(PERS, core);
 
     scope.bind(core);
+    scope.bind(allocators);
     scope.bind(swapChain);
     scope.bind(descLayoutManager);
 

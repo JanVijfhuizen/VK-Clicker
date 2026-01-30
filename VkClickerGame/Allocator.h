@@ -13,7 +13,7 @@ namespace gr {
 		void Destroy();
 
 	private:
-		Core* _core;
+		const Core* _core;
 		VkDeviceMemory _memory;
 		uint32_t _memoryTypeIndex;
 

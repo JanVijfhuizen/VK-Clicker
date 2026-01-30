@@ -5,14 +5,22 @@
 namespace gr {
 	enum class AllocatorType {
 		upload,
-		gpu
+		gpu,
+		length
 	};
 
 	struct Allocators final : public mem::IScoped {
 		Allocators(Core& core, uint32_t uploadCapacity, uint32_t gpuCapacity);
-	private:
-		Allocator _upload, _gpu;
+		void Destroy();
 
+		Memory Alloc(AllocatorType type, VkDeviceSize size, VkDeviceSize alignment);
+		Memory Alloc(AllocatorType type, VkBuffer buffer, bool bind);
+		void Clear(AllocatorType type);
+
+	private:
+		Allocator _allocators[(int)AllocatorType::length];
+
+		Allocator& Get(AllocatorType type);
 		virtual void OnScopeClear() override;
 	};
 }

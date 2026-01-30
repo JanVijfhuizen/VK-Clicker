@@ -137,6 +137,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Allocator.cpp" />
+    <ClCompile Include="Allocators.cpp" />
     <ClCompile Include="Arena.cpp" />
     <ClCompile Include="Arr.cpp" />
     <ClCompile Include="Buffer.cpp" />
@@ -173,6 +175,8 @@
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Allocator.h" />
+    <ClInclude Include="Allocators.h" />
     <ClInclude Include="Arena.h" />
     <ClInclude Include="Arr.h" />
     <ClInclude Include="BindingStep.h" />

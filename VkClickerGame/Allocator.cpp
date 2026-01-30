@@ -14,6 +14,7 @@ namespace gr {
 		allocInfo.memoryTypeIndex = memoryTypeIndex;
 
 		vkAllocateMemory(core.device, &allocInfo, nullptr, &_allocator._memory);
+		return _allocator;
 	}
 	Memory Allocator::Alloc(VkDeviceSize size, VkDeviceSize alignment)
 	{
