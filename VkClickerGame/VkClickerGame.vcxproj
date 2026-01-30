@@ -190,6 +190,7 @@
     <ClInclude Include="Map.h" />
     <ClInclude Include="Math.h" />
     <ClInclude Include="mem.h" />
+    <ClInclude Include="Memory.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PipelineBuilder.h" />

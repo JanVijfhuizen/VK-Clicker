@@ -47,6 +47,8 @@ struct Renderer final {
         auto descPoolBuilder = gr::DescriptorPoolBuilder();
         auto bindingsType = gr::BindingType::ubo;
 
+        // WIP DEEP MEMORY MANAGEMENT
+
         _descriptorPool = descPoolBuilder.Build(core, &bindingsType, &frameCount, 1, frameCount);
         _sets = _descriptorPool.Alloc(PERS, core, layout, frameCount);
 
