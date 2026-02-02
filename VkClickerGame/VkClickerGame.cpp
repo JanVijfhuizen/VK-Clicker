@@ -183,7 +183,7 @@ int main()
     auto coreBuilder = gr::CoreBuilder();
     auto core = coreBuilder.AddGLFWSupport().EnableValidationLayers(true).Build(PERS, window);
 
-    auto allocators = gr::Allocators(core, 4096 * 16, 4096 * 64);
+    auto allocators = gr::PERS_Allocators(core, 4096 * 16, 4096 * 64);
 
     auto swapChainBuilder = gr::SwapChainBuilder();
     auto swapChain = swapChainBuilder.Build(PERS, core, window);

@@ -1,39 +1,47 @@
 #include "pch.h"
 #include "Allocators.h"
+#include "Vec.h"
 
 namespace gr {
-	Allocators::Allocators(Core& core, uint32_t uploadCapacity, uint32_t gpuCapacity)
+	PERS_Allocators::PERS_Allocators(Core& core, uint32_t uploadCapacity, uint32_t gpuCapacity)
 	{
 		auto builder = AllocatorBuilder();
-		// WIP TYPE BITS.
-		Get(AllocatorType::upload) = builder.Build(core, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT +
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uploadCapacity);
-		Get(AllocatorType::gpu) = builder.Build(core, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uploadCapacity);
+
+		VkPhysicalDeviceMemoryProperties memProps;
+		vkGetPhysicalDeviceMemoryProperties(core.physicalDevice, &memProps);
+
+		_allocators = mem::Arr<Allocator>(PERS, memProps.memoryTypeCount);
+		for (uint32_t i = 0; i < memProps.memoryTypeCount; i++)
+			_allocators[i] = builder.Build(core, i, uploadCapacity);
 	}
-	void Allocators::Destroy()
+	void PERS_Allocators::Destroy()
 	{
 		OnScopeClear();
 	}
-	Memory Allocators::Alloc(AllocatorType type, VkDeviceSize size, VkDeviceSize alignment)
+	Memory PERS_Allocators::Alloc(uint32_t i, VkDeviceSize size, VkDeviceSize alignment)
 	{
-		return Get(type).Alloc(size, alignment);
+		return Get(i).Alloc(size, alignment);
 	}
-	Memory Allocators::Alloc(AllocatorType type, VkBuffer buffer, bool bind)
+	Memory PERS_Allocators::Alloc(uint32_t i, VkBuffer buffer, bool bind)
 	{
-		return Get(type).Alloc(buffer, bind);
+		return Get(i).Alloc(buffer, bind);
 	}
-	void Allocators::Clear(AllocatorType type)
+	void PERS_Allocators::Clear(uint32_t i)
 	{
-		for (uint32_t i = 0; i < (int)AllocatorType::length; i++)
+		Get(i).Clear();
+	}
+	void PERS_Allocators::Clear()
+	{
+		for (uint32_t i = 0; i < _allocators.length(); i++)
 			_allocators[i].Clear();
 	}
-	Allocator& Allocators::Get(AllocatorType type)
+	Allocator& PERS_Allocators::Get(uint32_t i)
 	{
-		return _allocators[(int)type];
+		return _allocators[i];
 	}
-	void Allocators::OnScopeClear()
+	void PERS_Allocators::OnScopeClear()
 	{
-		for (uint32_t i = 0; i < (int)AllocatorType::length; i++)
+		for (uint32_t i = 0; i < _allocators.length(); i++)
 			_allocators[i].Destroy();
 	}
 }

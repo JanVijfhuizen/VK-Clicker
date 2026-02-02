@@ -3,24 +3,21 @@
 #include "Allocator.h"
 
 namespace gr {
-	enum class AllocatorType {
-		upload,
-		gpu,
-		length
-	};
-
-	struct Allocators final : public mem::IScoped {
-		Allocators(Core& core, uint32_t uploadCapacity, uint32_t gpuCapacity);
+	// Pretty bad allocator but I dont want to spend too much time on it right now.
+	// Allocates all available pools equally with no regard which ones are used more frequently and cannot resize.
+	struct PERS_Allocators final : public mem::IScoped {
+		PERS_Allocators(Core& core, uint32_t uploadCapacity, uint32_t gpuCapacity);
 		void Destroy();
 
-		Memory Alloc(AllocatorType type, VkDeviceSize size, VkDeviceSize alignment);
-		Memory Alloc(AllocatorType type, VkBuffer buffer, bool bind);
-		void Clear(AllocatorType type);
+		Memory Alloc(uint32_t i, VkDeviceSize size, VkDeviceSize alignment);
+		Memory Alloc(uint32_t i, VkBuffer buffer, bool bind);
+		void Clear(uint32_t i);
+		void Clear();
 
 	private:
-		Allocator _allocators[(int)AllocatorType::length];
+		mem::Arr<Allocator> _allocators;
 
-		Allocator& Get(AllocatorType type);
+		Allocator& Get(uint32_t i);
 		virtual void OnScopeClear() override;
 	};
 }
